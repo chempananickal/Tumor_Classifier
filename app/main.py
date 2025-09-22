@@ -46,10 +46,10 @@ def load_credits_from_env(env_path: Path = ROOT / "environment.yml"):
 
 st.set_page_config(page_title="Brain Tumor Classifier", layout="centered")
 
-st.title("Brain Tumor MRI Classification with DenseNet121 and with Grad-CAM Heatmaps")
+st.title("MRI Brain Tumor Classifier")
 
 st.write("""
-This app uses a post-trained DenseNet121 machine learning model [(Huang et al., 2017)](https://arxiv.org/abs/1608.06993) to classify brain MRI images into four categories: Glioma, Meningioma, Pituitary tumors, or No Tumor. 
+This app uses a post-trained DenseNet121 machine learning model [(Huang et al., 2017)](https://arxiv.org/abs/1608.06993) to classify segmented brain MRI images into four categories: Glioma, Meningioma, Pituitary tumors, or No Tumor. 
 It also generates Grad-CAM heatmaps to visualize areas influencing the model's decisions. 
 
 The model was post-trained on the Figshare 2024 brain tumor dataset [(Afzal, 2024)](https://figshare.com/articles/figure/Brain_tumor_dataset/27102082).

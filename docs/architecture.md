@@ -26,12 +26,13 @@ graph TD
   TSP[scripts/train.py] --> CKPT
   TSP --> MOD
   TSP --> PREP
-  PREPDS[scripts/prepare_dataset.py] --> DATA[Prepared train val subsets]
+  PREPDS[scripts/prepare_dataset.py] --> DATA[Prepared train val test]
+  DATA --> SUBSET[train val]
   DATA --> TSP
   TEST[tests/test_inference_smoke.py] --> MOD
   subgraph Training
     PREPDS
-    DATA
+    SUBSET
     TSP
   end
   subgraph Runtime Core

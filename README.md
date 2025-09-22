@@ -291,6 +291,6 @@ Prompt: "Make the training a bit more verbose. Right now, I don't even know if i
 
 LLM Response: --added batch-level verbose logging to scripts/train.py--
 
-Additionally, automatic code completion has been used during the code writing process (GPT 4.1).
+Additionally, automatic code completion has been used during the code writing process (GPT 4.1). This model also assisted in writing the initial version of this README.md file and helps me write commit messages.
 
 I hereby certify that I have disclosed the use of AI assistance in this project to the best of my ability.

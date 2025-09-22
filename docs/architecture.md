@@ -15,21 +15,21 @@
 
 ```mermaid
 flowchart TD
-    A[Raw Images] --> B[prepare_dataset.py<br/>Split & Normalize Names]
+    A[Raw Images] --> B[prepare_dataset.py - split]
     B --> C[data_prepared/train]
     B --> D[data_prepared/val]
     B --> E[data_prepared/test]
 
-    C --> F[train.py<br/>Train Loop]
+    C --> F[train.py loop]
     D --> F
     F -->|checkpoints| G[(best.pt / last.pt)]
 
     subgraph Inference
-        H[User Image] --> I[InferenceEngine<br/>Transforms]
-        I --> J[Model (DenseNet121)]
-        J --> K[Prediction + Probs]
+        H[User Image] --> I[InferenceEngine + transforms]
+        I --> J[Model: DenseNet121]
+        J --> K[Prediction + probs]
         J --> L[Grad-CAM]
-        L --> M[Overlay Heatmap]
+        L --> M[Overlay heatmap]
         K --> N[Streamlit UI]
         M --> N
     end

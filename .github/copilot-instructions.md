@@ -81,6 +81,7 @@ Agent Guidelines:
 2. When changing model internals, update target Grad-CAM layer reference in `ModelWithHooks`.
 3. Always load `best.pt` for user-facing inference unless user overrides.
 4. Add dependencies only via `environment.yml` and re-export after changes.
+5. Any AI-generated content must be clearly marked.
 
 Open Clarifications (pending maintainer input):
 - Confirm final input resolution (currently 224x224) & whether center crop is desired.

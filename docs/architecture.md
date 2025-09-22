@@ -13,28 +13,59 @@
 
 ## 2. Data & Control Flow
 
+Note: AI-generated diagram below.
 ```mermaid
 flowchart TD
-    A[Raw Images] --> B[prepare_dataset.py - split]
-    B --> C[data_prepared/train]
-    B --> D[data_prepared/val]
-    B --> E[data_prepared/test]
-
-    C --> F[train.py loop]
-    D --> F
-    F -->|checkpoints| G[(best.pt / last.pt)]
-
-    subgraph Inference
-        H[User Image] --> I[InferenceEngine + transforms]
-        I --> J[Model: DenseNet121]
-        J --> K[Prediction + probs]
-        J --> L[Grad-CAM]
-        L --> M[Overlay heatmap]
-        K --> N[Streamlit UI]
-        M --> N
+    subgraph DataPrep[Dataset Preparation]
+        A[Raw class folders<br/>pituitary_tumor/... etc] --> B[prepare_dataset.py<br/>rename + split]
+        B --> C[data_prepared/train]
+        B --> D[data_prepared/val]
+        B --> E[data_prepared/test]
     end
 
-    G --> I
+    subgraph Training[Training Pipeline]
+        C --> TDS[ImageFolder(train)]
+        D --> VDS[ImageFolder(val)]
+        TDS --> TTF[Train Transforms<br/>CornerTextRemover -> BrainCrop? -> Resize -> CornerMask? -> Flip -> ToTensor+Norm]
+        VDS --> VTF[Val Transforms<br/>CornerTextRemover -> BrainCrop? -> Resize -> ToTensor+Norm]
+        TTF --> TL[Train DataLoader]
+        VTF --> VL[Val DataLoader]
+        TL --> TLK[DenseNet121 Model]
+        TLK --> OPT[(Adam Optimizer)]
+        OPT -->|update| TLK
+        TLK --> CRIT[CrossEntropy Loss]
+        TLK --> LOG[Softmax (for metrics)]
+        VL --> EV[evaluate()]
+        EV --> METRICS[val_loss / val_acc]
+        METRICS --> CKPT{Better val_acc?}
+        CKPT -->|yes| BEST[(best.pt + classes)]
+        CKPT -->|always| LAST[(last.pt + classes)]
+    end
+
+    subgraph Inference[Inference & Visualization]
+        UIMG[User Image] --> ITF[Inference Transforms<br/>CornerTextRemover -> BrainCrop? -> Resize -> ToTensor+Norm]
+        BEST --> IELOAD[InferenceEngine<br/>_load_weights()]
+        LAST --> IELOAD
+        IELOAD --> HOOK{enable_cam?}
+        HOOK -->|yes| MW[ModelWithHooks]
+        HOOK -->|no| MPlain[Model]
+        ITF --> RUN[(Forward Pass)]
+        MW --> RUN
+        MPlain --> RUN
+        RUN --> PRED[Softmax + Argmax]
+        MW -->|backward grad| CAMGEN[Grad-CAM<br/>denseblock4 hooks]
+        CAMGEN --> HEAT[Heatmap Overlay]
+        PRED --> OUT[Result Dict<br/>class, confidence, probs]
+        HEAT --> OUT
+    end
+
+    OUT --> UI[Streamlit UI]
+
+    classDef minor fill=#f5f5f5,stroke=#bbb,color=#333,font-size=11px;
+    classDef ckpt fill=#e3f2fd,stroke=#2196f3;
+    class BEST,LAST ckpt;
+    classDef infer fill=#fff3e0,stroke=#ff9800;
+    class ITF,IELOAD,RUN,PRED,CAMGEN,HEAT,OUT infer;
 ```
 
 ## 3. Preprocessing Pipeline (Ordered)

@@ -13,68 +13,64 @@
 
 ## 2. Data & Control Flow
 
-Note: AI-generated diagram below.
+Note: AI-generated diagrams below.
+#### Module Dependencies & Data Flow
 ```mermaid
-flowchart LR
-    %% Lanes: Dataset -> Training -> Best Model -> Inference User
-    %% 1. Dataset Preparation
-    subgraph DS[Dataset Preparation]
-        RAW[Raw MRI class folders\n pituitary_tumor / ... / no_tumor] --> PREP[prepare_dataset.py\n rename + deterministic split]
-        PREP --> TR[train directory]
-        PREP --> VA[val directory]
-        PREP --> TE[test directory]
-    end
-
-    %% 2. Shared Preprocessing Definition
-    subgraph PP[Shared Preprocessing - same logic]
-        P1[CornerTextRemover]
-        P2[BrainCrop optional]
-        P3[Resize 224x224]
-        P4[Augment - train only:\n CornerMask optional + Flip]
-        P5[ToTensor + Normalize]
-        P1 --> P2 --> P3 --> P4 --> P5
-    end
-
-    %% 3. Training Path
-    subgraph TRN[Training and Validation Loop]
-        TR --> LTR[ImageFolder train]
-        VA --> LVA[ImageFolder val]
-        LTR --> PTR[Apply preprocessing\n train path]
-        LVA --> PVA[Apply preprocessing\n val path]
-        PTR --> DLT[Train DataLoader]
-        PVA --> DLV[Val DataLoader]
-        DLT --> MOD[DenseNet121 model]
-        DLV --> MOD
-        MOD --> OPT[Adam updates]
-        OPT --> MOD
-        MOD --> METRICS[Loss + Acc train & val]
-        METRICS --> CKPT{val_acc improved}
-        CKPT -->|yes| BEST[best.pt plus classes]
-        CKPT -->|every epoch| LAST[last.pt plus classes]
-    end
-
-    %% 4. User Inference Path
-    subgraph INF[User Inference - Streamlit]
-        UP[User uploaded image\n often from test set] --> PINF[Apply preprocessing\n inference path]
-        BEST --> LOAD[Load checkpoint\n classes restored]
-        PINF --> RUN[Forward pass]
-        LOAD --> RUN
-        RUN --> PROB[Softmax + Top-1]
-        RUN --> CAM[Grad-CAM denseblock4]
-        CAM --> OVER[Overlay heatmap]
-        PROB --> OUT[Prediction dict]
-        OVER --> OUT
-        OUT --> UI[Streamlit UI - display]
-    end
-
-    %% 5. Test Split (Optional Evaluation Outside App)
-    TE --> LTE[ImageFolder test] --> PTE[Apply preprocessing\n val / infer mode] --> EVAL[Test metrics future]
-
-    %% Notes:
-    %% - Augment stage only active for training batches (PTR).
-    %% - BEST checkpoint is the one the Streamlit app should use by default.
+graph TD
+  A[app/main.py] --> B[app/inference.py]
+  A --> C[models/unet_densenet.py]
+  B --> C
+  B --> D[app/preprocessing.py]
+  B --> E[app/grad_cam.py]
+  D -->|provides transforms| B
+  E -->|provides GradCAM and overlay| B
+  F[scripts/train.py] --> C
+  F --> D
+  G[scripts/prepare_dataset.py] --> H[prepared data folders]
+  H --> F
+  H --> B
+  I[tests/test_inference_smoke.py] --> C
+  subgraph Runtime Core
+    B
+    C
+    D
+    E
+  end
+  subgraph Training Pipeline
+    G
+    H
+    F
+  end
+  subgraph UI Layer
+    A
+  end
+  subgraph Testing
+    I
+  end
 ```
 
+#### During Inference (Streamlit)
+
+```mermaid
+graph TD
+  U[User selects MRI file] --> FU[Streamlit file_uploader]
+  FU --> M[app main py]
+  M -->|lazy init if needed| ENG[InferenceEngine in session_state]
+  ENG --> W[Load checkpoint best pt]
+  ENG --> T[Build inference transforms]
+  M -->|passes PIL image| ENG
+  ENG --> P[Preprocessing pipeline CornerTextRemover optional BrainCrop Resize Normalize]
+  P --> FWD[Model forward DenseNet121 classifier]
+  FWD --> PROB[Softmax probabilities]
+  FWD -->|if GradCAM enabled| CAMGEN[GradCAM hooks activation gradient]
+  CAMGEN --> CAM[Generate normalized CAM map]
+  CAM --> OVL[Overlay heatmap on original RGB]
+  PROB --> RES[Assemble result dict class confidence probabilities]
+  OVL --> RES
+  RES --> M
+  M --> UI[Display prediction probabilities heatmap]
+  UI --> U
+```
 ## 3. Preprocessing Pipeline (Ordered)
 1. CornerTextRemover – heuristic cleanup of burned‑in labels or scanner overlays.
 2. BrainCrop (optional) – threshold-based bounding box around high-intensity brain tissue.

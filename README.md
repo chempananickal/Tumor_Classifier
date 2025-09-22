@@ -314,23 +314,27 @@ Hi, I don't expect anyone to read this far or find this thing useful, but if you
 
 GitHub Copilot (GPT 5) has been used in the creation of this project. All information available to GitHub Copilot during Agent Mode is available under .github/copilot-instructions.md.
 
-In addition to writing everything in tests/, GitHub Copilot was prompted to help with bug fixes and feature improvements. The following prompts were used:
+In addition to writing everything in tests/ and contributing significantly to the files in docs/ (specifically architecture.md and the three ADRs), GitHub Copilot was prompted to help with bug fixes and feature improvements. The following prompts were used:
 
-Prompt: "The data is currently in the format data/pituitary_tumor, data/no_tumor, etc... Write a script that turns it into a format that your scripts expect. The shuffling into train, val and test should be random but reproducible (seed)"
+- Prompt: "The data is currently in the format data/pituitary_tumor, data/no_tumor, etc... Write a script that turns it into a format that your scripts expect. The shuffling into train, val and test should be random but reproducible (seed)"
 
-LLM Response: --created scripts/prepare_dataset.py following my instructions--
+	- LLM Response: --created scripts/prepare_dataset.py following my instructions--
 
-Prompt:"Check through the entire training regimen. It seems to classify everything exactly wrong in the same way. As in, pituitary is predicted as negative, meningioma as glioma, glioma as pituitary, and negative as meningioma. My data is in the correct folders. It's some slight oversight in the training code"
+- Prompt:"Check through the entire training regimen. It seems to classify everything exactly wrong in the same way. As in, pituitary is predicted as negative, meningioma as glioma, glioma as pituitary, and negative as meningioma. My data is in the correct folders. It's some slight oversight in the training code"
 
-LLM Response: "You were seeing a consistent “rotated” misclassification because the class ordering used at inference didn’t match the dataset’s true class index ordering during training. ImageFolder assigns class indices alphabetically based on folder names. Your earlier CLASSES constant (and possibly a modified version) didn’t match that ordering. So each logit index was being interpreted as the wrong semantic class, producing a stable permutation error (a cycle mapping each class to another). The pattern you described (pituitary -> negative, meningioma -> glioma, glioma -> pituitary, negative -> meningioma) is exactly what happens when label interpretation is shifted by a permutation."
+	- LLM Response: "You were seeing a consistent “rotated” misclassification because the class ordering used at inference didn’t match the dataset’s true class index ordering during training. ImageFolder assigns class indices alphabetically based on folder names. Your earlier CLASSES constant (and possibly a modified version) didn’t match that ordering. So each logit index was being interpreted as the wrong semantic class, producing a stable permutation error (a cycle mapping each class to another). The pattern you described (pituitary -> negative, meningioma -> glioma, glioma -> pituitary, negative -> meningioma) is exactly what happens when label interpretation is shifted by a permutation."
 
-Prompt: "How do I teach the model to stop taking the parts outside the MRI into account? GRAD CAM shows the reason for false negatives being it looking at the corners of the image, not the bounds of the brain".
+- Prompt: "How do I teach the model to stop taking the parts outside the MRI into account? GRAD CAM shows the reason for false negatives being it looking at the corners of the image, not the bounds of the brain".
 
-LLM Response: --added RandomCornerMask to app/preprocessing.py, fixed __call__ method in BrainCrop--
+	- LLM Response: --added RandomCornerMask to app/preprocessing.py, fixed __call__ method in BrainCrop--
 
-Prompt: "Make the training a bit more verbose. Right now, I don't even know if it's running until an entire epoch is completed"
+- Prompt: "Make the training a bit more verbose. Right now, I don't even know if it's running until an entire epoch is completed"
 
-LLM Response: --added batch-level verbose logging to scripts/train.py--
+	- LLM Response: --added batch-level verbose logging to scripts/train.py--
+
+- Prompt: "Look through my code, construct an architecture overview document for docs/architecture.md"
+
+	- LLM Response: --created docs/architecture.md following my instructions--
 
 Additionally, automatic code completion has been used during the code writing process (GPT 4.1). This model also assisted in writing the initial version of this README.md file and helps write commit messages.
 

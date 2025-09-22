@@ -1,0 +1,29 @@
+*.rar
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+
+# Model weights
+# models/**/*.pt
+# models/**/*.pth
+# models/weights/
+
+# Environment / build artifacts
+.env
+.venv
+*.log
+
+# Streamlit
+.streamlit/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / misc
+.DS_Store
+Thumbs.db
+
+# Data
+data/
+data_prepared/

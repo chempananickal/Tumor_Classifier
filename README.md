@@ -2,7 +2,7 @@
 
 End-to-end brain MRI tumor classifier (pituitary / glioma / meningioma / negative) with a training pipeline (PyTorch + DenseNet121) and an interactive Streamlit app producing Grad-CAM heatmaps for transparency.
 
-Authored by Rubin James (Group3) as my submission for the "Projektpraktikum" course at Provadis Hochschule, BIN23.
+Authored by Rubin James (BIN23 Group 3) as my submission for the "Projektpraktikum" course at Provadis School of International Management and Technology, BIN23.
 
 ---
 
@@ -28,22 +28,31 @@ cd Tumor_Classifier
 conda env create -f environment.yml
 conda activate tumor
 
-# Download and extract raw dataset (see section 4), then:
+# Download and extract the dataset from https://figshare.com/ndownloader/files/49403884 (curl didn't work. Use browser)
+# mkdir data_raw
+# (Extract the RAR archive contents into data_raw/)
+
 python scripts/prepare_dataset.py --source data_raw --dest data_prepared --seed 42 --train-ratio 0.8 --val-ratio 0.1 --test-ratio 0.1
 
-python scripts/train.py --data-root data_prepared --epochs 15 --batch-size 16 --brain-crop --corner-mask-prob 0.25 --out-dir models/weights
+# If you want to train the model yourself, uncomment and run the following line. Otherwise, skip to the next step to use the provided checkpoint (models/weights/best.pt):
+# python scripts/train.py --data-root data_prepared --epochs 15 --batch-size 16 --brain-crop --corner-mask-prob 0.25 --out-dir models/weights
 
 streamlit run app/main.py
 ```
+This should will give you a link in the terminal (likely `http://localhost:8501`) to open in your browser. You can use the app there. Upload an MRI slice and see the prediction + Grad-CAM heatmap. Ideally, use an image from data_prepared/test because the model has never seen those.
 
 ---
 
 ## 3. Environment Setup
 
 ### 3.1 Prerequisites
-- Conda (Miniconda or Anaconda)
-- Python 3.10+ (environment file targets recent PyTorch CPU build)
-- 4+ CPU cores, ~16 GB RAM (CPU training; I don't have a CUDA or ROCm GPU setup)
+- 4+ CPU cores, ~16 GB RAM (CPU training and inference; I don't have a CUDA or ROCm GPU setup)
+- x86-64 architecture (AMD64/Intel64). ARM (Apple Silicon) might work but I haven't tested it.
+- OS: Linux or WSL2 [(Windows Subsystem for Linux)](https://docs.microsoft.com/en-us/windows/wsl/install). MacOS might work but I haven't tested it. 
+Tested and validated on [OpenSUSE Tumbleweed (WSL2)](https://apps.microsoft.com/detail/9mssk2zxxn11).
+- [Git](https://git-scm.com/)
+- Conda ([Miniforge](https://github.com/conda-forge/miniforge?tab=readme-ov-file#windows-subsystem-for-linux-wsl) or [Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/install#linux-2) recommended)
+- Python 3.12+ (environment file targets recent PyTorch CPU build). Should be handled by conda.
 
 ### 3.2 Create Environment
 ```bash
@@ -136,7 +145,7 @@ Checkpoint keys include: `model_state`, `optimizer_state`, `epoch`, `val_acc`, `
 
 ---
 
-## 6. Inference (Programmatic)
+## 6. Programmatic Inference (not required for Streamlit app)
 
 ```python
 from pathlib import Path
@@ -165,6 +174,8 @@ Launch:
 ```bash
 streamlit run app/main.py
 ```
+
+Once you run this command in your terminal, it should give you a link (likely `http://localhost:8501`) to open in your browser. The app should be accessible there.
 
 UI Features:
 - Upload an MRI slice (RGB or grayscale; auto-converted if not JPEG)
@@ -207,7 +218,8 @@ If you change architectures, update the hooked layer in `app/grad_cam.py` or wra
 ## 10. Testing
 
 Current test: `tests/test_inference_smoke.py` ensures forward pass shape (2×3×224×224 -> logits (2×4)).
-Suggested additions (Copilot's suggestions):
+
+Suggested additions (Copilot's suggestions, not yet implemented):
 - Transform integrity tests (brain crop doesn’t change aspect ratio catastrophically).
 - Grad-CAM value range (0–1 after normalization).
 - Class ordering persistence (checkpoint vs default).

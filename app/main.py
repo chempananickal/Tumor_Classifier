@@ -74,4 +74,4 @@ __Streamlit__: An open-source python app framework used to create and share data
 - **No Tumor**: Indicates that the MRI scan does not show any signs of a tumor.
 """)
 
-st.caption("Developed by Rubin James (BIN23 Group 3) for the *Projektpraktikum* course at the Provadis School of International Management & Technology AG 2025.")
+st.caption("Made by [Rubin James](https://github.com/chempananickal) (BIN23 Group 3) for the *Projektpraktikum* course at the [Provadis School of International Management & Technology](https://www.provadis-hochschule.de) 2025.")

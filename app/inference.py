@@ -17,6 +17,7 @@ from app.grad_cam import GradCAM, overlay_heatmap
 
 
 class InferenceEngine:
+    """Encapsulates model loading, preprocessing, and inference with optional Grad-CAM."""
     def __init__(self, weights_path: Path, device: str = 'cpu', enable_cam: bool = True, brain_crop: bool = True):
         self.device = torch.device(device)
         base_model = get_model(pretrained=False)
@@ -67,6 +68,7 @@ class InferenceEngine:
         self.model.eval()
 
     def predict(self, image: Image.Image, return_cam: bool = True) -> Dict[str, Any]:
+        """Run inference on a single PIL image. Returns dict with class, confidence, probs, and optionally heatmap."""
         img = image.convert('RGB')
         tensor = self.transforms(img).unsqueeze(0).to(self.device)
         with torch.no_grad():

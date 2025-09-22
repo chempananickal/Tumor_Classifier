@@ -62,6 +62,7 @@ class ModelWithHooks(nn.Module): # NOTE: AI Generated
 
 
 def load_checkpoint(model: nn.Module, ckpt_path: str, map_location: str = "cpu") -> nn.Module:
+    """Load model weights from a checkpoint file, handling various serialization formats."""
     state = torch.load(ckpt_path, map_location=map_location)
     if isinstance(state, dict) and 'state_dict' in state:
         sd = state['state_dict']

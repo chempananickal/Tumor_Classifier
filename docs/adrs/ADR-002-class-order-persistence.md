@@ -1,4 +1,4 @@
-# ADR-003: Persisting Class Ordering in Checkpoints
+# ADR-002: Persisting Class Ordering in Checkpoints
 
 ## Status
 Accepted

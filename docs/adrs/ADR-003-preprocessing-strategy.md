@@ -1,4 +1,4 @@
-# ADR-002: Heuristic Brain Crop & Corner Artifact Mitigation
+# ADR-003: Heuristic Brain Crop & Corner Artifact Mitigation
 
 ## Status
 Accepted

@@ -13,19 +13,28 @@
 
 ## 2. Data & Control Flow
 
-```
-Raw Images --> prepare_dataset.py --> data_prepared/{train,val,test}/class_name/
-     |                              
-     v
-  train.py --> DataLoader(train) -> Transforms(train) -> Model (DenseNet121)
-                   |                                    |  ^
-                   |--> DataLoader(val) -> Transforms(val) |  |
-                   |                                       |  |
-                   +----> Metrics & Checkpointing <--------+  |
-                                                             |
-Checkpoint (best.pt) ------------------------------------------+
-                                                             |
-User Image -> InferenceEngine -> Transforms(infer) -> Model -> Pred + Grad-CAM -> Streamlit UI
+```mermaid
+flowchart TD
+    A[Raw Images] --> B[prepare_dataset.py<br/>Split & Normalize Names]
+    B --> C[data_prepared/train]
+    B --> D[data_prepared/val]
+    B --> E[data_prepared/test]
+
+    C --> F[train.py<br/>Train Loop]
+    D --> F
+    F -->|checkpoints| G[(best.pt / last.pt)]
+
+    subgraph Inference
+        H[User Image] --> I[InferenceEngine<br/>Transforms]
+        I --> J[Model (DenseNet121)]
+        J --> K[Prediction + Probs]
+        J --> L[Grad-CAM]
+        L --> M[Overlay Heatmap]
+        K --> N[Streamlit UI]
+        M --> N
+    end
+
+    G --> I
 ```
 
 ## 3. Preprocessing Pipeline (Ordered)

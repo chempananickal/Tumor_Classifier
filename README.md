@@ -303,7 +303,7 @@ The dataset is under its own license (CC-BY-4.0, see Figshare link in section 4 
 
 ---
 
-## 15. Citation:
+## 15. Citation
 
 Hi, I don't expect anyone to read this far or find this thing useful, but if you do, and you want to build on this repository, please cite the dataset and the open source tools in environment.yml. I couldn't have done this without them. And if you insist on citing this repo too, here's a BibTeX entry:
 ```

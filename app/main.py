@@ -15,7 +15,7 @@ import yaml
 # Credits helpers
 # --------------------
 @st.cache_data(show_spinner=False)
-def load_credits_from_env(env_path: Path = ROOT / "environment.yml"):
+def load_credits_from_env(env_path: Path = ROOT / "environment.yml"): # NOTE: AI Generated
     """Parse environment.yml and return a sorted list of package specs.
 
     We collect both conda dependencies and pip packages (names only, strip build strings).

@@ -18,6 +18,8 @@ The HVU architecture showed promise, but had several practical drawbacks for thi
 - **TensorFlow/Keras dependency**: The HVU implementation was in TensorFlow/Keras. Due to my lack of experience with this framework, adapting and debugging the code would have a steep learning curve and slow down development. So I opted for PyTorch, which I am more familiar with.
 - **Unclear data splitting**: The HVU paper did not clearly describe how the dataset was split into training, validation, and test sets, just the ratios. This ambiguity could lead to divergent results and hinder reproducibility.
 - **Incomplete implementation of classification**: The HVU codebase only fully implemented the segmentation task. The encoder code is shared between the two tasks, but the paper mentions using an SVM or other model on top of the HVU features for classification, but this was not provided.
+- **No Grad-CAM**: The HVU codebase did not include any clear implementation of Grad-CAM for visual explanations, which was a key requirement for this project.
+- **Unclear licensing**: The HVU repository did not specify a license, creating legal uncertainty around its use and modification.
 
 ## Consequences
 - The project scope shifted from segmentation to slice-level classification of the Figshare dataset with Grad-CAM visualization.

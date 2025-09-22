@@ -16,46 +16,46 @@
 Note: AI-generated diagram below.
 ```mermaid
 flowchart TD
-    subgraph DataPrep[Dataset Preparation]
-        A[Raw class folders<br/>pituitary_tumor/... etc] --> B[prepare_dataset.py<br/>rename + split]
+    subgraph DataPrep
+        A[Raw class folders] --> B[prepare_dataset.py: split + rename]
         B --> C[data_prepared/train]
         B --> D[data_prepared/val]
         B --> E[data_prepared/test]
     end
 
-    subgraph Training[Training Pipeline]
-        C --> TDS[ImageFolder(train)]
-        D --> VDS[ImageFolder(val)]
-        TDS --> TTF[Train Transforms<br/>CornerTextRemover -> BrainCrop? -> Resize -> CornerMask? -> Flip -> ToTensor+Norm]
-        VDS --> VTF[Val Transforms<br/>CornerTextRemover -> BrainCrop? -> Resize -> ToTensor+Norm]
+    subgraph Training
+        C --> TDS[ImageFolder train]
+        D --> VDS[ImageFolder val]
+        TDS --> TTF[Train Transforms]
+        VDS --> VTF[Val Transforms]
         TTF --> TL[Train DataLoader]
         VTF --> VL[Val DataLoader]
-        TL --> TLK[DenseNet121 Model]
-        TLK --> OPT[(Adam Optimizer)]
-        OPT -->|update| TLK
-        TLK --> CRIT[CrossEntropy Loss]
-        TLK --> LOG[Softmax (for metrics)]
-        VL --> EV[evaluate()]
-        EV --> METRICS[val_loss / val_acc]
-        METRICS --> CKPT{Better val_acc?}
-        CKPT -->|yes| BEST[(best.pt + classes)]
-        CKPT -->|always| LAST[(last.pt + classes)]
+        TL --> MODEL[DenseNet121]
+        VL --> MODEL
+        MODEL --> LOSS[CrossEntropyLoss]
+        MODEL --> OPT[Adam Optimizer]
+        OPT --> MODEL
+        VL --> EVAL[evaluate()]
+        EVAL --> MET[val_acc / val_loss]
+        MET --> DECIDE{Improved?}
+        DECIDE -->|yes| BEST[(best.pt + classes)]
+        DECIDE -->|always| LAST[(last.pt + classes)]
     end
 
-    subgraph Inference[Inference & Visualization]
-        UIMG[User Image] --> ITF[Inference Transforms<br/>CornerTextRemover -> BrainCrop? -> Resize -> ToTensor+Norm]
-        BEST --> IELOAD[InferenceEngine<br/>_load_weights()]
-        LAST --> IELOAD
-        IELOAD --> HOOK{enable_cam?}
-        HOOK -->|yes| MW[ModelWithHooks]
-        HOOK -->|no| MPlain[Model]
-        ITF --> RUN[(Forward Pass)]
-        MW --> RUN
-        MPlain --> RUN
-        RUN --> PRED[Softmax + Argmax]
-        MW -->|backward grad| CAMGEN[Grad-CAM<br/>denseblock4 hooks]
-        CAMGEN --> HEAT[Heatmap Overlay]
-        PRED --> OUT[Result Dict<br/>class, confidence, probs]
+    subgraph Inference
+        UIMG[User Image] --> ITF[Inference Transforms]
+        BEST --> LOAD[Load weights]
+        LAST --> LOAD
+        LOAD --> WRAP{enable_cam?}
+        WRAP -->|yes| HOOK[ModelWithHooks]
+        WRAP -->|no| PLAIN[Model]
+        ITF --> RUN[Forward]
+        HOOK --> RUN
+        PLAIN --> RUN
+        RUN --> SOFT[Softmax + Argmax]
+        HOOK --> GCAM[Grad-CAM]
+        GCAM --> HEAT[Overlay heatmap]
+        SOFT --> OUT[Result dict]
         HEAT --> OUT
     end
 

@@ -66,6 +66,7 @@ python -c "import torch, torchvision; print(torch.__version__, torchvision.__ver
 
 Source dataset: 2024 Figshare Brain Tumor MRI (link: https://figshare.com/ndownloader/files/49403884). Citation:
 
+```
 @article{Afzal2024,
 author = "Shiraz Afzal",
 title = "{Brain tumor dataset}",
@@ -74,6 +75,7 @@ month = "9",
 url = "https://figshare.com/articles/figure/Brain_tumor_dataset/27102082",
 doi = "10.6084/m9.figshare.27102082.v1"
 }
+```
 
 ### 4.1 Raw Layout Expectation
 The aforementioned dataset is a RAR archive. After extracting it to a folder called `data_raw`, it should look something like this:

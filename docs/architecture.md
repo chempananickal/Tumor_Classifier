@@ -17,28 +17,29 @@ Note: AI-generated diagrams below.
 #### Module Dependencies & Data Flow
 ```mermaid
 graph TD
-  U[Uploaded MRI image] --> M[app main py]
-  M --> IE[app inference py]
-  IE --> MW[models weights best pt]
-  TSP[scripts train py] --> MW
-  TSP --> PREP[app preprocessing py]
-  IE --> PREP
-  IE --> GC[app grad_cam py]
-  TSP --> MOD[models unet_densenet py]
-  IE --> MOD
-  TEST[tests test_inference_smoke py] --> MOD
-  PREPDS[scripts prepare_dataset py] --> DATA[prepared train val test]
+  U[Uploaded MRI image] --> M[app/main.py]
+  M --> IE[app/inference.py]
+  CKPT[models/weights/best.pt] --> IE
+  MOD[models/unet_densenet.py] --> IE
+  PREP[app/preprocessing.py] --> IE
+  GC[app/grad_cam.py] --> IE
+  TSP[scripts/train.py] --> CKPT
+  TSP --> MOD
+  TSP --> PREP
+  PREPDS[scripts/prepare_dataset.py] --> DATA[prepared train val test]
   DATA --> TSP
+  TEST[tests/test_inference_smoke.py] --> MOD
   subgraph Training
     PREPDS
     DATA
     TSP
   end
   subgraph Runtime Core
-    IE
+    MOD
     PREP
     GC
-    MOD
+    CKPT
+    IE
   end
   subgraph UI
     M
@@ -48,16 +49,20 @@ graph TD
   end
 ```
 
+Arrow semantics provider -> consumer. Supporting modules and artifacts flow into the inference engine rather than the engine pointing outward. This eliminates the earlier dangling feel where preprocessing grad_cam and model looked like dependents instead of dependencies.
+
 #### During Inference (Streamlit)
 
 ```mermaid
 graph TD
   U[User uploads MRI] --> M[Streamlit UI app main py]
-  M -->|loads once if absent| IE[InferenceEngine]
-  IE -->|reads| CKPT[Checkpoint best pt]
+  CKPT[Checkpoint best pt] --> IE[InferenceEngine]
+  MOD[DenseNet121 model] --> IE
+  PREP[Deterministic preprocessing] --> IE
+  GC[Grad CAM hooks] --> IE
+  M -->|lazy init| IE
   M -->|passes PIL image| IE
-  IE --> PREP[Deterministic preprocessing]
-  PREP --> FWD[DenseNet121 forward]
+  IE --> FWD[Forward pass logits]
   FWD --> PROB[Softmax probabilities]
   FWD -->|if enabled| CAMHOOK[Capture activations gradients]
   CAMHOOK --> CAM[Compute CAM heatmap]

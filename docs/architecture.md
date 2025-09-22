@@ -71,7 +71,7 @@ flowchart LR
     TE --> LTE[ImageFolder test] --> PTE[Apply preprocessing\n val / infer mode] --> EVAL[Test metrics future]
 
     %% Cross-links / Emphasis
-    classDef shared fill=red,stroke=darkred,color=blue;
+    classDef shared fill=red, stroke=darkred, color=blue;
     class P1,P2,P3,P4,P5,PTR,PVA,PINF,PTE shared;
 
     %% Notes:

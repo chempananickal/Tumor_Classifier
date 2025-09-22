@@ -60,12 +60,6 @@ flowchart TD
     end
 
     OUT --> UI[Streamlit UI]
-
-    classDef minor fill=#f5f5f5,stroke=#bbb,color=#333,font-size=11px;
-    classDef ckpt fill=#e3f2fd,stroke=#2196f3;
-    class BEST,LAST ckpt;
-    classDef infer fill=#fff3e0,stroke=#ff9800;
-    class ITF,IELOAD,RUN,PRED,CAMGEN,HEAT,OUT infer;
 ```
 
 ## 3. Preprocessing Pipeline (Ordered)

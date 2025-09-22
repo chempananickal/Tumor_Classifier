@@ -30,8 +30,11 @@ graph TD
   DATA --> SUBSET[train val]
   DATA --> TSP
   TEST[tests/test_inference_smoke.py] --> MOD
-  subgraph Training
+  subgraph Dataset Preparation
     PREPDS
+    DATA
+  end
+  subgraph Training
     SUBSET
     TSP
   end

@@ -128,6 +128,7 @@ with st.expander("Show Credits / Attributions"):
     st.markdown("- **Streamlit**: https://streamlit.io/")
 
     st.markdown("### Other Open Source Components")
+    st.markdown("Note: This list is generated dynamically from the `environment.yml` file and may include packages not directly used in the app code.")
     pkgs = load_credits_from_env()
     if not pkgs:
         st.write("(No packages found or environment.yml missing)")

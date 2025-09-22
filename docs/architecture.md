@@ -70,10 +70,6 @@ flowchart LR
     %% 5. Test Split (Optional Evaluation Outside App)
     TE --> LTE[ImageFolder test] --> PTE[Apply preprocessing\n val / infer mode] --> EVAL[Test metrics future]
 
-    %% Cross-links / Emphasis
-    classDef shared fill=red, stroke=darkred, color=blue;
-    class P1,P2,P3,P4,P5,PTR,PVA,PINF,PTE shared;
-
     %% Notes:
     %% - Augment stage only active for training batches (PTR).
     %% - BEST checkpoint is the one the Streamlit app should use by default.

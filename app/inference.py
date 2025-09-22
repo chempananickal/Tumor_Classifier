@@ -11,9 +11,9 @@ _ROOT = _P(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from models.unet_densenet import get_model, ModelWithHooks, CLASSES as DEFAULT_CLASSES  # noqa: E402
-from app.preprocessing import infer_transforms  # noqa: E402
-from app.grad_cam import GradCAM, overlay_heatmap  # noqa: E402
+from models.unet_densenet import get_model, ModelWithHooks, CLASSES as DEFAULT_CLASSES
+from app.preprocessing import infer_transforms
+from app.grad_cam import GradCAM, overlay_heatmap
 
 
 class InferenceEngine:

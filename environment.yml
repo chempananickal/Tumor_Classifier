@@ -28,6 +28,8 @@ dependencies:
   - azure-storage-common-cpp=12.10.0=hebae86a_2
   - azure-storage-files-datalake-cpp=12.12.0=h8b27e44_3
   - blinker=1.9.0=pyhff2d567_0
+  - brotli=1.1.0=hb03c661_4
+  - brotli-bin=1.1.0=hb03c661_4
   - brotli-python=1.1.0=py313h7033f15_4
   - bzip2=1.0.8=hda65f42_8
   - c-ares=1.34.5=hb9d3cd8_0
@@ -38,6 +40,8 @@ dependencies:
   - cffi=1.17.1=py313hf01b4d8_1
   - charset-normalizer=3.4.3=pyhd8ed1ab_0
   - click=8.3.0=pyh707e725_0
+  - contourpy=1.3.3=py313h7037e92_2
+  - cycler=0.12.1=pyhd8ed1ab_1
   - cyrus-sasl=2.1.28=hd9c7081_0
   - dav1d=1.2.1=hd590300_0
   - dbus=1.16.2=h3c4dab8_0
@@ -50,6 +54,7 @@ dependencies:
   - fontconfig=2.15.0=h7e30c49_1
   - fonts-conda-ecosystem=1=0
   - fonts-conda-forge=1=0
+  - fonttools=4.60.0=py313h3dea7bd_0
   - freeglut=3.2.2=ha6d2627_3
   - freetype=2.14.1=ha770c72_0
   - fribidi=1.0.16=hb03c661_0
@@ -78,6 +83,7 @@ dependencies:
   - jsonschema=4.25.1=pyhe01879c_0
   - jsonschema-specifications=2025.9.1=pyhcf101f3_0
   - keyutils=1.6.3=hb9d3cd8_0
+  - kiwisolver=1.4.9=py313hc8edb43_1
   - krb5=1.21.3=h659f571_0
   - lame=3.100=h166bdaf_1003
   - lcms2=2.17=h717163a_0
@@ -196,10 +202,14 @@ dependencies:
   - libxcrypt=4.4.36=hd590300_1
   - libxkbcommon=1.11.0=he8b52b9_0
   - libxml2=2.13.8=h04c0eec_1
+  - libxslt=1.1.43=h7a3aeb2_0
   - libzlib=1.3.1=hb9d3cd8_2
   - lz4-c=1.10.0=h5888daf_1
   - markupsafe=3.0.2=py313h8060acc_1
+  - matplotlib=3.10.6=py313h78bf25f_1
+  - matplotlib-base=3.10.6=py313h683a580_1
   - mpg123=1.32.9=hc50e24c_0
+  - munkres=1.1.4=pyhd8ed1ab_1
   - narwhals=2.5.0=pyhcf101f3_0
   - ncurses=6.5=h2d0b736_3
   - nlohmann_json=3.12.0=h54a6638_1
@@ -228,6 +238,8 @@ dependencies:
   - pyarrow-core=21.0.0=py313he109ebe_0_cpu
   - pycparser=2.22=pyh29332c3_1
   - pydeck=0.9.1=pyhd8ed1ab_0
+  - pyparsing=3.2.5=pyhcf101f3_0
+  - pyside6=6.9.2=py313ha3f37dd_1
   - pysocks=1.7.1=pyha55dd90_7
   - python=3.13.7=h2b335a9_100_cp313
   - python-dateutil=2.9.0.post0=pyhe01879c_2
@@ -235,6 +247,7 @@ dependencies:
   - python_abi=3.13=8_cp313
   - pytz=2025.2=pyhd8ed1ab_0
   - pyyaml=6.0.2=py313h8060acc_2
+  - qhull=2020.2=h434a139_5
   - qt6-main=6.9.2=h5bd77bc_1
   - rav1e=0.7.1=h8fae777_3
   - re2=2025.08.12=h5301d42_1
@@ -307,4 +320,3 @@ dependencies:
       - torch==2.8.0+cpu
       - torchvision==0.23.0+cpu
       - typing-extensions==4.12.2
-  - matplotlib==3.9.2

@@ -1,4 +1,4 @@
-from typing import Tuple, Optional
+from typing import Tuple
 from torchvision import transforms
 from PIL import Image
 import numpy as np

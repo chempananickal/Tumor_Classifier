@@ -23,10 +23,9 @@ Use `torchvision.models.densenet121` with ImageNet weights and replace classifie
 ## Alternatives Considered
 | Option | Pros | Cons |
 |--------|------|------|
-| ResNet50 | Stable, common | Slightly larger, CAM quality similar |
-| EfficientNet-B3 | Better accuracy/params | Slightly more brittle LR tuning, CAM less sharp |
-| ConvNeXt-T | Modern redesign | Additional complexity, not initially implemented |
-| ViT-B/16 | Global context | Requires more data/pretraining for stability |
+| ResNet50 | Stable, common | Slightly larger, CAM quality similar (usually) |
+| EfficientNet-B3 | Allegedly better accuracy/params | Unfamiliar architecture |
+| ConvNeXt-T | Modern redesign | Additional complexity, out of scope for a POC |
 
 ## Future Evolution
 Introduce architecture flag for alternate backbones; update Grad-CAM hook target accordingly.

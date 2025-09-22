@@ -259,6 +259,14 @@ app/
 	inference.py       # Inference engine + Grad-CAM integration
 	preprocessing.py   # Transforms (brain crop, corner cleanup, augmentation)
 	grad_cam.py        # Grad-CAM implementation
+docs/
+	architecture.md   # Architecture overview
+	limitations.md    # Limitations & responsible use
+	adrs/			  # Architecture Decision Records
+		ADR-000-move-away-from-hvu.md
+		ADR-001-densenet-baseline.md
+		ADR-002-preprocessing-strategy.md
+		ADR-003-class-order-persistence.md
 models/
 	unet_densenet.py   # DenseNet121 model wrapper & checkpoint utilities
 scripts/

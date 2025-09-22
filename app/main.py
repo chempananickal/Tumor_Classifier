@@ -9,6 +9,40 @@ if str(ROOT) not in sys.path:
 
 from app.inference import InferenceEngine
 from models.unet_densenet import CLASSES
+import yaml
+
+# --------------------
+# Credits helpers
+# --------------------
+@st.cache_data(show_spinner=False)
+def load_credits_from_env(env_path: Path = ROOT / "environment.yml"):
+    """Parse environment.yml and return a sorted list of package specs.
+
+    We collect both conda dependencies and pip packages (names only, strip build strings).
+    If the file is missing or malformed, we fail gracefully returning an empty list.
+    """
+    pkgs = set()
+    try:
+        with open(env_path, 'r') as f:
+            data = yaml.safe_load(f)
+        deps = data.get('dependencies', []) if isinstance(data, dict) else []
+        for d in deps:
+            if isinstance(d, str):
+                # Conda style: name[=version[=build]] -> take first segment before '='
+                base = d.split('=')[0].strip()
+                if base:
+                    pkgs.add(base)
+            elif isinstance(d, dict) and 'pip' in d:
+                for p in d['pip']:
+                    # pip style: name==version -> take before '=='
+                    base = p.split('==')[0].strip()
+                    if base:
+                        pkgs.add(base)
+    except FileNotFoundError:
+        pass
+    except Exception as e:  # Broad except to keep UI robust
+        pkgs.add(f"(error parsing environment.yml: {e})")
+    return sorted(pkgs)
 
 st.set_page_config(page_title="Brain Tumor Classifier", layout="centered")
 
@@ -20,6 +54,11 @@ It also generates Grad-CAM heatmaps to visualize areas influencing the model's d
 
 The model was post-trained on the Figshare 2024 brain tumor dataset [(Afzal, 2024)](https://figshare.com/articles/figure/Brain_tumor_dataset/27102082).
 """)
+st.link_button(
+    "Download Dataset",
+    url="https://figshare.com/ndownloader/files/49403884",
+    help="Direct download of the Brain Tumor MRI dataset archive from Figshare"
+)
 
 st.write("## Disclaimer")
 st.write("""
@@ -75,3 +114,28 @@ __Streamlit__: An open-source python app framework used to create and share data
 """)
 
 st.caption("Made by [Rubin James](https://github.com/chempananickal) (BIN23 Group 3) for the *Projektpraktikum* course at the [Provadis School of International Management & Technology](https://www.provadis-hochschule.de) 2025.")
+
+# --------------------
+# Credits (collapsible)
+# --------------------
+with st.expander("Show Credits / Attributions"):
+
+    st.markdown("### Core Components")
+    st.markdown("This project would not have been possible without the following projects and resources:")
+    st.markdown("- **PyTorch**: (Paszke et al., 2019) [(arXiv:1912.01703)](https://arxiv.org/abs/1912.01703)")
+    st.markdown("- **DenseNet121**: (Huang et al., 2017) [(arXiv:1608.06993)](https://arxiv.org/abs/1608.06993)")
+    st.markdown("- **Brain Tumor Dataset**: Brain Tumor MRI (Afzal, 2024) — [Figshare](https://figshare.com/articles/figure/Brain_tumor_dataset/27102082)")
+    st.markdown("- **Streamlit**: https://streamlit.io/")
+
+    st.markdown("### Other Open Source Components")
+    pkgs = load_credits_from_env()
+    if not pkgs:
+        st.write("(No packages found or environment.yml missing)")
+    else:
+        # Display in columns for compactness
+        n_cols = 3
+        cols = st.columns(n_cols)
+        for i, name in enumerate(pkgs):
+            cols[i % n_cols].write(f"- {name}")
+
+    st.caption("Dependency list generated dynamically from environment.yml (cached in session).")

@@ -114,7 +114,7 @@ __Streamlit__: An open-source python app framework used to create and share data
 """)
 
 st.caption("Made by [Rubin James](https://github.com/chempananickal) (BIN23 Group 3) for the *Projektpraktikum* course at the [Provadis School of International Management & Technology](https://www.provadis-hochschule.de) 2025.")
-
+st.caption("Source code: [GitHub](https://github.com/chempananickal/Tumor_Classifier/)")
 # --------------------
 # Credits (collapsible)
 # --------------------

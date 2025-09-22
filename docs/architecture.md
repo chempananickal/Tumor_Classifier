@@ -16,66 +16,66 @@
 Note: AI-generated diagram below.
 ```mermaid
 flowchart LR
-    %% Lanes: Dataset -> Training -> Best Model -> Inference (User)
+    %% Lanes: Dataset -> Training -> Best Model -> Inference User
     %% 1. Dataset Preparation
     subgraph DS[Dataset Preparation]
-        RAW["Raw MRI class folders\n(pituitary_tumor / ... / no_tumor)"] --> PREP[prepare_dataset.py\nrename + deterministic split]
-        PREP --> TR[train/]
-        PREP --> VA[val/]
-        PREP --> TE[test/]
+        RAW[Raw MRI class folders\n pituitary_tumor / ... / no_tumor] --> PREP[prepare_dataset.py\n rename + deterministic split]
+        PREP --> TR[train directory]
+        PREP --> VA[val directory]
+        PREP --> TE[test directory]
     end
 
     %% 2. Shared Preprocessing Definition
-    subgraph PP["Shared Preprocessing (same logic)"]
+    subgraph PP[Shared Preprocessing - same logic]
         P1[CornerTextRemover]
-        P2[BrainCrop?]
+        P2[BrainCrop optional]
         P3[Resize 224x224]
-        P4["Augment (train only):\nCornerMask? + Flip"]
+        P4[Augment - train only:\n CornerMask optional + Flip]
         P5[ToTensor + Normalize]
         P1 --> P2 --> P3 --> P4 --> P5
     end
 
     %% 3. Training Path
-    subgraph TRN[Training & Validation Loop]
-        TR --> LTR["ImageFolder(train)"]
-        VA --> LVA["ImageFolder(val)"]
-        LTR --> PTR["Apply Preprocessing\n(train path)"]
-        LVA --> PVA["Apply Preprocessing\n(val path)"]
+    subgraph TRN[Training and Validation Loop]
+        TR --> LTR[ImageFolder train]
+        VA --> LVA[ImageFolder val]
+        LTR --> PTR[Apply preprocessing\n train path]
+        LVA --> PVA[Apply preprocessing\n val path]
         PTR --> DLT[Train DataLoader]
         PVA --> DLV[Val DataLoader]
         DLT --> MOD[DenseNet121 model]
         DLV --> MOD
         MOD --> OPT[Adam updates]
         OPT --> MOD
-        MOD --> METRICS["Loss + Acc (train/val)"]
-        METRICS --> CKPT{val_acc improved?}
-        CKPT -->|yes| BEST[(best.pt\n+ classes)]
-        CKPT -->|every epoch| LAST[(last.pt\n+ classes)]
+        MOD --> METRICS[Loss + Acc train & val]
+        METRICS --> CKPT{val_acc improved}
+        CKPT -->|yes| BEST[best.pt plus classes]
+        CKPT -->|every epoch| LAST[last.pt plus classes]
     end
 
     %% 4. User Inference Path
-    subgraph INF["User Inference (Streamlit)"]
-        UP[User Uploaded Image\n(often from test/)] --> PINF["Apply Preprocessing\n(inference path)"]
-        BEST --> LOAD["Load checkpoint\n(classes restored)"]
+    subgraph INF[User Inference - Streamlit]
+        UP[User uploaded image\n often from test set] --> PINF[Apply preprocessing\n inference path]
+        BEST --> LOAD[Load checkpoint\n classes restored]
         PINF --> RUN[Forward pass]
         LOAD --> RUN
-        RUN --> PROB["Softmax + Top-1"]
-        RUN --> CAM["Grad-CAM\n(denseblock4)"]
-        CAM --> OVER["Overlay heatmap"]
-        PROB --> OUT["Prediction dict"]
+        RUN --> PROB[Softmax + Top-1]
+        RUN --> CAM[Grad-CAM denseblock4]
+        CAM --> OVER[Overlay heatmap]
+        PROB --> OUT[Prediction dict]
         OVER --> OUT
-        OUT --> UI["Streamlit UI\n(display results)"]
+        OUT --> UI[Streamlit UI - display]
     end
 
     %% 5. Test Split (Optional Evaluation Outside App)
-    TE --> LTE["ImageFolder(test)"] --> PTE["Apply Preprocessing\n(val/infer mode)"] --> EVAL["Test Metrics\n(script future)"]
+    TE --> LTE[ImageFolder test] --> PTE[Apply preprocessing\n val / infer mode] --> EVAL[Test metrics future]
 
     %% Cross-links / Emphasis
     classDef shared fill=#e8f5e9,stroke=#2e7d32,color=#1b5e20;
     class P1,P2,P3,P4,P5,PTR,PVA,PINF,PTE shared;
 
     %% Notes:
-    %% - Augment stage (CornerMask + Flip) only active for training batches (PTR).
+    %% - Augment stage only active for training batches (PTR).
     %% - BEST checkpoint is the one the Streamlit app should use by default.
 ```
 

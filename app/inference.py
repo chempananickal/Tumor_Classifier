@@ -6,10 +6,10 @@ from PIL import Image
 import numpy as np
 
 # Ensure project root on path when run under Streamlit (which sets CWD to repo root typically)
-from pathlib import Path as _P
-_ROOT = _P(__file__).resolve().parent.parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+from pathlib import Path
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from models.unet_densenet import get_model, ModelWithHooks, CLASSES as DEFAULT_CLASSES
 from app.preprocessing import infer_transforms
@@ -33,7 +33,7 @@ class InferenceEngine:
             raise FileNotFoundError(f"Weights file not found: {weights_path}")
         state = torch.load(weights_path, map_location=self.device)
         # Accept several serialization formats
-        if isinstance(state, dict) and 'model_state' in state:
+        if isinstance(state, dict) and 'model_state' in state: # NOTE: Fixed by AI
             state_dict = state['model_state']
             if 'classes' in state:
                 self.classes = state['classes']
@@ -43,7 +43,7 @@ class InferenceEngine:
             state_dict = state
 
         # Try direct load; on failure attempt key surgery
-        try:
+        try: # NOTE: Fixed by AI
             self.model.load_state_dict(state_dict, strict=True)
         except RuntimeError as e:
             # Collect model keys for debugging

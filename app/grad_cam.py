@@ -1,7 +1,6 @@
 import torch
 import cv2
 import numpy as np
-from typing import Optional
 
 class GradCAM: # NOTE: AI Generated
     """Grad-CAM implementation for visual explanations from CNN-based models.
@@ -10,11 +9,11 @@ class GradCAM: # NOTE: AI Generated
     and overlay them on the original image. Ideally the heatmap should show where the model
     is "looking" to make its classification decision (where it thinks the tumor is).
     """
-    def __init__(self, model_with_hooks, target_class: Optional[int] = None):
+    def __init__(self, model_with_hooks, target_class: int | None = None):
         self.model = model_with_hooks
         self.target_class = target_class
 
-    def generate(self, input_tensor: torch.Tensor, class_idx: Optional[int] = None):
+    def generate(self, input_tensor: torch.Tensor, class_idx: int | None = None):
         self.model.zero_grad()
         logits = self.model(input_tensor)
         if class_idx is None:

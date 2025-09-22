@@ -50,9 +50,9 @@ streamlit run app/main.py
 conda env create -f environment.yml
 conda activate tumor
 ```
-P.S; If you add packages: update with this. Trust me, it'll save you headaches later.
+P.S: If you add packages, update with this. Trust me, it'll save you headaches later.
 ```bash
-conda env export --no-builds > environment.yml
+conda env export | grep -v "^prefix: " > environment.yml
 ```
 
 ### 3.3 Verify Installation
@@ -68,12 +68,12 @@ Source dataset: 2024 Figshare Brain Tumor MRI (link: https://figshare.com/ndownl
 
 ```
 @article{Afzal2024,
-author = "Shiraz Afzal",
-title = "{Brain tumor dataset}",
-year = "2024",
-month = "9",
-url = "https://figshare.com/articles/figure/Brain_tumor_dataset/27102082",
-doi = "10.6084/m9.figshare.27102082.v1"
+	author = "Shiraz Afzal",
+	title = "{Brain tumor dataset}",
+	year = "2024",
+	month = "9",
+	url = "https://figshare.com/articles/figure/Brain_tumor_dataset/27102082",
+	doi = "10.6084/m9.figshare.27102082.v1"
 }
 ```
 
@@ -248,7 +248,21 @@ tests/
 
 ---
 
-## 13. License
+## 13. Glossary
+- PyTorch: A deep learning framework originally from Facebook AI Research.
+- DenseNet121: A convolutional neural network architecture known for its dense connectivity pattern. Used as a pretrained backbone for the classifier.
+- Grad-CAM: Gradient-weighted Class Activation Mapping, a technique to visualize which parts of an image influenced the model's decision.
+- Streamlit: A Python framework for building interactive web apps for machine learning and data science.
+- MRI: Magnetic Resonance Imaging, a medical imaging technique used to visualize internal structures of the body, particularly soft tissues like the brain.
+- Tumor Types:
+  - Pituitary Tumor: A tumor located in the pituitary gland, which can affect hormone production.
+  - Glioma: A type of tumor that arises from glial cells in the brain or spine.
+  - Meningioma: A tumor that forms on the meninges, the protective membranes covering the brain and spinal cord.
+  - Negative: No tumor present.
+
+---
+
+## 14. License
 
 This app is licensed under Apache 2.0. See `LICENSE` in repository root.
 As for the individual open source components that make up this app, please refer to their respective licenses.
@@ -256,20 +270,21 @@ Dataset is under its own license (CC-BY-4.0, see Figshare link for details).
 
 ---
 
-## 14. Citation:
-Hi, I don't expect anyone to read this far or find this thing useful, but if you do, and you want to build on this repository, please cite the dataset. I couldn't have done this without it. And if you insist on citing this repo too, here's a BibTeX entry:
+## 15. Citation:
+Hi, I don't expect anyone to read this far or find this thing useful, but if you do, and you want to build on this repository, please cite the dataset and the open source tools in environment.yml. I couldn't have done this without them. And if you insist on citing this repo too, here's a BibTeX entry:
 ```
 @misc{hvu_tumor_visualizer,
 	title  = {HVU Tumor Visualizer: Brain MRI Tumor Classification + Grad-CAM as a Streamlit App},
-	author = {Rubin James},
-	year   = {2025},
+	author = "Rubin James",
+	year   = "2025",
+	month  = "9",
 	note   = {https://github.com/chempananickal/Tumor_Classifier}
 }
 ```
 
 ---
 
-## 15. AI Disclosure
+## 16. AI Disclosure
 
 GitHub Copilot (GPT 5) has been used in the creation of this project. All information available to GitHub Copilot during Agent Mode is available under .github/copilot-instructions.md.
 
@@ -291,6 +306,8 @@ Prompt: "Make the training a bit more verbose. Right now, I don't even know if i
 
 LLM Response: --added batch-level verbose logging to scripts/train.py--
 
-Additionally, automatic code completion has been used during the code writing process (GPT 4.1). This model also assisted in writing the initial version of this README.md file and helps me write commit messages.
+Additionally, automatic code completion has been used during the code writing process (GPT 4.1). This model also assisted in writing the initial version of this README.md file and helps write commit messages.
+
+Every substantial instance of AI assistance, whether by code completion or otherwise, has been disclosed in comments in the code itself with the NOTE tags `# NOTE: AI Generated` or `# NOTE: Fixed by AI`.
 
 I hereby certify that I have disclosed the use of AI assistance in this project to the best of my ability.

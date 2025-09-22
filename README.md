@@ -46,6 +46,7 @@ This should will give you a link in the terminal (likely `http://localhost:8501`
 ## 3. Environment Setup
 
 ### 3.1 Prerequisites
+
 - 4+ CPU cores, ~16 GB RAM (CPU training and inference; I don't have a CUDA or ROCm GPU setup)
 - x86-64 architecture (AMD64/Intel64). ARM (Apple Silicon) might work but I haven't tested it.
 - OS: Linux or WSL2 [(Windows Subsystem for Linux)](https://docs.microsoft.com/en-us/windows/wsl/install). MacOS might work but I haven't tested it. 
@@ -55,16 +56,19 @@ Tested and validated on [OpenSUSE Tumbleweed (WSL2)](https://apps.microsoft.com/
 - Python 3.12+ (environment file targets recent PyTorch CPU build). Should be handled by conda.
 
 ### 3.2 Create Environment
+
 ```bash
 conda env create -f environment.yml
 conda activate tumor
 ```
-P.S: If you add packages, update with this. Trust me, it'll save you headaches later.
+P.S: If you add packages, update the `environment.yml` with this. Trust me, it'll save you headaches later.
+
 ```bash
 conda env export | grep -v "^prefix: " > environment.yml
 ```
 
 ### 3.3 Verify Installation
+
 ```bash
 python -c "import torch, torchvision; print(torch.__version__, torchvision.__version__)"
 ```
@@ -73,7 +77,9 @@ python -c "import torch, torchvision; print(torch.__version__, torchvision.__ver
 
 ## 4. Dataset Preparation
 
-Source dataset: 2024 Figshare Brain Tumor MRI (link: https://figshare.com/ndownloader/files/49403884). Citation:
+Source dataset: 2024 Figshare Brain Tumor MRI (link: https://figshare.com/ndownloader/files/49403884). 
+
+Citation:
 
 ```
 @article{Afzal2024,
@@ -87,6 +93,7 @@ Source dataset: 2024 Figshare Brain Tumor MRI (link: https://figshare.com/ndownl
 ```
 
 ### 4.1 Raw Layout Expectation
+
 The aforementioned dataset is a RAR archive. After extracting it to a folder called `data_raw`, it should look something like this:
 ```
 data_raw/
@@ -97,6 +104,7 @@ data_raw/
 ```
 
 ### 4.2 Prepare Train/Val/Test Split
+
 Use the provided script (it normalizes class names and splits deterministically by seed):
 ```bash
 python scripts/prepare_dataset.py --source data_raw --dest data_prepared --seed 42 --train-ratio 0.8 --val-ratio 0.1 --test-ratio 0.1
@@ -127,6 +135,7 @@ python scripts/train.py --data-root data_prepared --batch-size 16 --epochs 15 --
 ```
 
 ### 5.2 Recommended Flags
+
 | Flag | Purpose |
 |------|---------|
 | `--brain-crop` | Enable heuristic brain-focused crop (improves focus on anatomy) |
@@ -243,6 +252,7 @@ pytest -q
 ---
 
 ## 12. Repository Structure (Key Paths)
+
 ```
 app/
 	main.py            # Streamlit UI
@@ -261,6 +271,7 @@ tests/
 ---
 
 ## 13. Glossary
+
 - PyTorch: A deep learning framework originally from Facebook AI Research.
 - DenseNet121: A convolutional neural network architecture known for its dense connectivity pattern. Used as a pretrained backbone for the classifier.
 - Grad-CAM: Gradient-weighted Class Activation Mapping, a technique to visualize which parts of an image influenced the model's decision.
@@ -277,12 +288,15 @@ tests/
 ## 14. License
 
 This app is licensed under Apache 2.0. See `LICENSE` in repository root.
+
 As for the individual open source components that make up this app, please refer to their respective licenses.
-Dataset is under its own license (CC-BY-4.0, see Figshare link for details).
+
+The dataset is under its own license (CC-BY-4.0, see Figshare link in section 4 for details).
 
 ---
 
 ## 15. Citation:
+
 Hi, I don't expect anyone to read this far or find this thing useful, but if you do, and you want to build on this repository, please cite the dataset and the open source tools in environment.yml. I couldn't have done this without them. And if you insist on citing this repo too, here's a BibTeX entry:
 ```
 @misc{hvu_tumor_visualizer,

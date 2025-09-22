@@ -26,7 +26,7 @@ graph TD
   TSP[scripts/train.py] --> CKPT
   TSP --> MOD
   TSP --> PREP
-  PREPDS[scripts/prepare_dataset.py] --> DATA[prepared train val test]
+  PREPDS[scripts/prepare_dataset.py] --> DATA[Prepared train val subsets]
   DATA --> TSP
   TEST[tests/test_inference_smoke.py] --> MOD
   subgraph Training

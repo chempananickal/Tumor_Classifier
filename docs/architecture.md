@@ -17,44 +17,44 @@ Note: AI-generated diagram below.
 ```mermaid
 flowchart TD
     subgraph DataPrep
-        A[Raw class folders] --> B[prepare_dataset.py: split + rename]
-        B --> C[data_prepared/train]
-        B --> D[data_prepared/val]
-        B --> E[data_prepared/test]
+        A[Raw class folders] --> B[prepare_dataset.py split]
+        B --> C[train dir]
+        B --> D[val dir]
+        B --> E[test dir]
     end
 
     subgraph Training
         C --> TDS[ImageFolder train]
         D --> VDS[ImageFolder val]
-        TDS --> TTF[Train Transforms]
-        VDS --> VTF[Val Transforms]
-        TTF --> TL[Train DataLoader]
-        VTF --> VL[Val DataLoader]
+        TDS --> TTF[Train transforms]
+        VDS --> VTF[Val transforms]
+        TTF --> TL[Train loader]
+        VTF --> VL[Val loader]
         TL --> MODEL[DenseNet121]
         VL --> MODEL
-        MODEL --> LOSS[CrossEntropyLoss]
-        MODEL --> OPT[Adam Optimizer]
+        MODEL --> LOSS[CE loss]
+        MODEL --> OPT[Adam opt]
         OPT --> MODEL
-        VL --> EVAL[evaluate()]
-        EVAL --> MET[val_acc / val_loss]
-        MET --> DECIDE{Improved?}
-        DECIDE -->|yes| BEST[(best.pt + classes)]
-        DECIDE -->|always| LAST[(last.pt + classes)]
+        VL --> EVAL[Evaluate]
+        EVAL --> MET[val_acc & val_loss]
+        MET --> DECIDE[Improved?]
+        DECIDE -->|yes| BEST[best.pt + classes]
+        DECIDE -->|always| LAST[last.pt + classes]
     end
 
     subgraph Inference
-        UIMG[User Image] --> ITF[Inference Transforms]
+        UIMG[User image] --> ITF[Infer transforms]
         BEST --> LOAD[Load weights]
         LAST --> LOAD
-        LOAD --> WRAP{enable_cam?}
+        LOAD --> WRAP[enable_cam?]
         WRAP -->|yes| HOOK[ModelWithHooks]
-        WRAP -->|no| PLAIN[Model]
+        WRAP -->|no| PLAIN[Base model]
         ITF --> RUN[Forward]
         HOOK --> RUN
         PLAIN --> RUN
-        RUN --> SOFT[Softmax + Argmax]
+        RUN --> SOFT[Softmax argmax]
         HOOK --> GCAM[Grad-CAM]
-        GCAM --> HEAT[Overlay heatmap]
+        GCAM --> HEAT[Heatmap overlay]
         SOFT --> OUT[Result dict]
         HEAT --> OUT
     end

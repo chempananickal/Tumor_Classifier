@@ -17,35 +17,34 @@ Note: AI-generated diagrams below.
 #### Module Dependencies & Data Flow
 ```mermaid
 graph TD
-  A[app/main.py] --> B[app/inference.py]
-  A --> C[models/unet_densenet.py]
-  B --> C
-  B --> D[app/preprocessing.py]
-  B --> E[app/grad_cam.py]
-  D -->|provides transforms| B
-  E -->|provides GradCAM and overlay| B
-  F[scripts/train.py] --> C
-  F --> D
-  G[scripts/prepare_dataset.py] --> H[prepared data folders]
-  H --> F
-  H --> B
-  I[tests/test_inference_smoke.py] --> C
+  U[Uploaded MRI image] --> M[app main py]
+  M --> IE[app inference py]
+  IE --> MW[models weights best pt]
+  TSP[scripts train py] --> MW
+  TSP --> PREP[app preprocessing py]
+  IE --> PREP
+  IE --> GC[app grad_cam py]
+  TSP --> MOD[models unet_densenet py]
+  IE --> MOD
+  TEST[tests test_inference_smoke py] --> MOD
+  PREPDS[scripts prepare_dataset py] --> DATA[prepared train val test]
+  DATA --> TSP
+  subgraph Training
+    PREPDS
+    DATA
+    TSP
+  end
   subgraph Runtime Core
-    B
-    C
-    D
-    E
+    IE
+    PREP
+    GC
+    MOD
   end
-  subgraph Training Pipeline
-    G
-    H
-    F
-  end
-  subgraph UI Layer
-    A
+  subgraph UI
+    M
   end
   subgraph Testing
-    I
+    TEST
   end
 ```
 
@@ -53,23 +52,20 @@ graph TD
 
 ```mermaid
 graph TD
-  U[User selects MRI file] --> FU[Streamlit file_uploader]
-  FU --> M[app main py]
-  M -->|lazy init if needed| ENG[InferenceEngine in session_state]
-  ENG --> W[Load checkpoint best pt]
-  ENG --> T[Build inference transforms]
-  M -->|passes PIL image| ENG
-  ENG --> P[Preprocessing pipeline CornerTextRemover optional BrainCrop Resize Normalize]
-  P --> FWD[Model forward DenseNet121 classifier]
+  U[User uploads MRI] --> M[Streamlit UI app main py]
+  M -->|loads once if absent| IE[InferenceEngine]
+  IE -->|reads| CKPT[Checkpoint best pt]
+  M -->|passes PIL image| IE
+  IE --> PREP[Deterministic preprocessing]
+  PREP --> FWD[DenseNet121 forward]
   FWD --> PROB[Softmax probabilities]
-  FWD -->|if GradCAM enabled| CAMGEN[GradCAM hooks activation gradient]
-  CAMGEN --> CAM[Generate normalized CAM map]
-  CAM --> OVL[Overlay heatmap on original RGB]
-  PROB --> RES[Assemble result dict class confidence probabilities]
-  OVL --> RES
+  FWD -->|if enabled| CAMHOOK[Capture activations gradients]
+  CAMHOOK --> CAM[Compute CAM heatmap]
+  CAM --> OVER[Overlay heatmap]
+  PROB --> RES[Assemble result dict]
+  OVER --> RES
   RES --> M
-  M --> UI[Display prediction probabilities heatmap]
-  UI --> U
+  M --> OUT[Display class confidence heatmap]
 ```
 ## 3. Preprocessing Pipeline (Ordered)
 1. CornerTextRemover – heuristic cleanup of burned‑in labels or scanner overlays.

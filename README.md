@@ -61,11 +61,6 @@ Tested and validated on [OpenSUSE Tumbleweed (WSL2)](https://apps.microsoft.com/
 conda env create -f environment.yml
 conda activate tumor
 ```
-P.S: If you add packages, update the `environment.yml` with this. Trust me, it'll save you headaches later.
-
-```bash
-conda env export | grep -v "^prefix: " > environment.yml
-```
 
 ### 3.3 Verify Installation
 

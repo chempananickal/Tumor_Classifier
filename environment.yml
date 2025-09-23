@@ -240,7 +240,7 @@ dependencies:
   - pyparsing=3.2.5=pyhcf101f3_0
   - pyside6=6.9.2=py313ha3f37dd_1
   - pysocks=1.7.1=pyha55dd90_7
-  - python=3.13.7=h2b335a9_100_cp313
+  - python
   - python-dateutil=2.9.0.post0=pyhe01879c_2
   - python-tzdata=2025.2=pyhd8ed1ab_0
   - python_abi=3.13=8_cp313
@@ -316,6 +316,6 @@ dependencies:
       - pillow==11.0.0
       - setuptools==70.2.0
       - sympy==1.13.3
-      - torch==2.8.0+cpu
-      - torchvision==0.23.0+cpu
+      - torch==2.8.0
+      - torchvision==0.23.0
       - typing-extensions==4.12.2

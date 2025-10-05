@@ -30,7 +30,7 @@ conda activate tumor
 
 # Download and extract the dataset from https://figshare.com/ndownloader/files/49403884
 wget https://ndownloader.figshare.com/files/49403884 -O data_raw.rar
-# Install unrar if you don't have it already (e.g. `sudo apt install unrar` on Debian/Ubuntu) or sudo zypper install unrar on OpenSUSE
+# Install unrar if you don't have it already (e.g. `sudo apt install unrar` on Debian/Ubuntu) or `sudo zypper install unrar` on OpenSUSE
 unrar x data_raw.rar data_raw/
 
 python scripts/prepare_dataset.py --source data_raw --dest data_prepared --seed 42 --train-ratio 0.8 --val-ratio 0.1 --test-ratio 0.1

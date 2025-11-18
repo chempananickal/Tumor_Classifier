@@ -1,4 +1,4 @@
-## HVU_Tumor_Visualizer – Copilot Working Guide
+## Tumor_Classifier – Copilot Working Guide
 
 Purpose: End-to-end brain MRI tumor classification (pituitary, glioma, meningioma, negative) with training (DenseNet121 + CrossEntropy) and a Streamlit inference UI providing Grad-CAM heatmaps.
 

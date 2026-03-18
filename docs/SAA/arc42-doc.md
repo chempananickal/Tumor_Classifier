@@ -1,201 +1,360 @@
+# Tumor Classifier Product Architecture Documentation (arc42 Template)
+
+*Version: 1.0 | Status: Draft (2026-03-18) | Authors: Chempananickal James (D876), Leithoff (D...), Savkov (D...)
+
 ---
-date: July 2025
-title: "![arc42](images/arc42-logo.png) Template"
+
+## 1. Introduction and Goals
+
+### 1.1 Requirements Overview
+
+- MRI brain tumor classification supporting both fully local and client-server execution
+- Healthcare practitioners send images for remote inference (E2EE, stateless on server)
+- Model developers can upload ONNX classifiers via API
+- Product is open source, Wiki docs, contribution via PR, bug/features via GitHub Issues
+- Communication via mailing list (announcements) and Slack group (collaboration)
+
+### 1.2 Quality Goals
+
+| Goal           | Description                                   | Priority |
+|----------------|-------------------------------------------------------|----------|
+| Accuracy       | Reliable classification results (>90% in independent validation for every accepted model)| Highest  |
+| Security       | E2EE, no unencrypted data stored                                                         | Highest  |
+| Privacy        | No persistent patient data                                                               | Highest  |
+| Explainability | Heatmaps with Grad-CAM                                                                   | High     |
+| Customizability| ONNX model upload                                                                        | Medium   |
+| Usability      | Simple UI, clear results                                                                 | High     |
+| Open Source    | PR/Issue workflow, easy docs                                                             | High     |
+| Performance    | Fast local/server-side inference                                                         | Medium   |
+
+
+### 1.3 Stakeholders
+
+| Role                         | Contact                | Expectations                          |
+|------------------------------|------------------------|---------------------------------------|
+| Medical Practitioners        | Clinic emails, Slack   | Reliable tumor classification         |
+| Healthcare System Administrators | Direct, Slack      | Deployment, compliance                |
+| ML Model Developers          | GitHub, Slack          | Upload/test custom models             |
+| Open Source Developers       | GitHub, Slack          | Collaboration, thorough docs/issues   |
+
 ---
 
-# 
-
-**About arc42**
-
-arc42, the template for documentation of software and system
-architecture.
-
-Template Version 9.0-EN. (based upon AsciiDoc version), July 2025
-
-Created, maintained and © by Dr. Peter Hruschka, Dr. Gernot Starke and
-contributors. See <https://arc42.org>.
-
-# Introduction and Goals
-
-## Requirements Overview
-
-## Quality Goals
-
-## Stakeholders
-
-| Role/Name    | Contact         | Expectations        |
-|--------------|-----------------|---------------------|
-| *\<Role-1\>* | *\<Contact-1\>* | *\<Expectation-1\>* |
-| *\<Role-2\>* | *\<Contact-2\>* | *\<Expectation-2\>* |
-
-# Architecture Constraints
-
-# Context and Scope
-
-## Business Context
-
-**\<Diagram or Table\>**
-
-**\<optionally: Explanation of external domain interfaces\>**
-
-## Technical Context
-
-**\<Diagram or Table\>**
-
-**\<optionally: Explanation of technical interfaces\>**
-
-**\<Mapping Input/Output to Channels\>**
-
-# Solution Strategy
-
-# Building Block View
-
-## Whitebox Overall System
-
-***\<Overview Diagram\>***
-
-Motivation  
-*\<text explanation\>*
-
-Contained Building Blocks  
-*\<Description of contained building block (black boxes)\>*
-
-Important Interfaces  
-*\<Description of important interfaces\>*
-
-### \<Name black box 1\>
-
-*\<Purpose/Responsibility\>*
-
-*\<Interface(s)\>*
-
-*\<(Optional) Quality/Performance Characteristics\>*
-
-*\<(Optional) Directory/File Location\>*
-
-*\<(Optional) Fulfilled Requirements\>*
-
-*\<(optional) Open Issues/Problems/Risks\>*
-
-### \<Name black box 2\>
-
-*\<black box template\>*
-
-### \<Name black box n\>
-
-*\<black box template\>*
-
-### \<Name interface 1\>
-
-…​
-
-### \<Name interface m\>
-
-## Level 2
-
-### White Box *\<building block 1\>*
-
-*\<white box template\>*
-
-### White Box *\<building block 2\>*
-
-*\<white box template\>*
-
-…​
-
-### White Box *\<building block m\>*
-
-*\<white box template\>*
-
-## Level 3
-
-### White Box \<\_building block x.1\_\>
-
-*\<white box template\>*
-
-### White Box \<\_building block x.2\_\>
-
-*\<white box template\>*
-
-### White Box \<\_building block y.1\_\>
-
-*\<white box template\>*
-
-# Runtime View
-
-## \<Runtime Scenario 1\>
-
-- *\<insert runtime diagram or textual description of the scenario\>*
-
-- *\<insert description of the notable aspects of the interactions
-  between the building block instances depicted in this diagram.\>*
-
-## \<Runtime Scenario 2\>
-
-## …​
-
-## \<Runtime Scenario n\>
-
-# Deployment View
-
-## Infrastructure Level 1
-
-***\<Overview Diagram\>***
-
-Motivation  
-*\<explanation in text form\>*
-
-Quality and/or Performance Features  
-*\<explanation in text form\>*
-
-Mapping of Building Blocks to Infrastructure  
-*\<description of the mapping\>*
-
-## Infrastructure Level 2
-
-### *\<Infrastructure Element 1\>*
-
-*\<diagram + explanation\>*
-
-### *\<Infrastructure Element 2\>*
-
-*\<diagram + explanation\>*
-
-…​
-
-### *\<Infrastructure Element n\>*
-
-*\<diagram + explanation\>*
-
-# Cross-cutting Concepts
-
-## *\<Concept 1\>*
-
-*\<explanation\>*
-
-## *\<Concept 2\>*
-
-*\<explanation\>*
-
-…​
-
-## *\<Concept n\>*
-
-*\<explanation\>*
-
-# Architecture Decisions
-
-# Quality Requirements
-
-## Quality Requirements Overview
-
-## Quality Scenarios
-
-# Risks and Technical Debts
-
-# Glossary
-
-| Term         | Definition         |
-|--------------|--------------------|
-| *\<Term-1\>* | *\<definition-1\>* |
-| *\<Term-2\>* | *\<definition-2\>* |
+# 2. Architecture Constraints
+
+## 2.1 Technical Constraints
+
+| Constraint | Explanation |
+|---|---|
+| Python-centric current codebase | The current project is 100% Python, so migration should preserve leverage of existing model and inference logic where possible. |
+| Local mode must use STLite/WASM + ONNX | This constrains local execution technology and requires browser-compatible or WASM-compatible model/runtime packaging. |
+| Remote mode must support encrypted request/response flow | The architecture must include client-side encryption and carefully bounded server-side decryption/encryption. |
+| Explainability must be preserved | Heatmap generation is a product requirement, not optional functionality. |
+| Custom model upload must use a standardized API | Model plugins must conform to a stable inference contract. |
+| GitHub is the system of record for collaboration | Wiki, PRs, Issues, and Actions are mandatory workflow components. |
+| Server hosting target is Hetzner | Production infrastructure should assume Hetzner VMs, networks, storage, and operational conventions. |
+
+## 2.2 Organizational Constraints
+
+| Constraint | Explanation |
+|---|---|
+| Open-source project governance | The architecture must remain understandable and contributor-friendly. |
+| Contributions via PR only | Architectural change must be reviewable and traceable. |
+| Bug reports and feature requests via Issues | Product backlog and defect tracking are GitHub-centered. |
+| Communication split across mailing list and Slack | Formal announcements and collaborative discussion occur in separate channels. |
+
+## 2.3 Regulatory / Domain Constraints
+
+| Constraint | Explanation |
+|---|---|
+| Medical context sensitivity | Even if the product is not itself a certified diagnostic device initially, it operates in a medically sensitive domain and must avoid overstated claims. |
+| Protected health information risk | MRI images may be sensitive even without explicit metadata. Privacy by design is mandatory. |
+| Auditability expectations | Institutions may expect traceability of model version, runtime version, and configuration for each inference session. |
+| Data minimization | Persistent storage of sensitive input data should be avoided wherever possible, especially in remote mode. |
+
+## 2.4 Conventions
+
+| Convention | Explanation |
+|---|---|
+| Architecture documentation in arc42 format | All major architectural documentation should remain aligned with arc42. |
+| Mermaid for diagrams | Diagrams should be text-based and version-controllable. |
+| Semantic versioning for releases | Improves traceability of deployments and model compatibility. |
+| PR-based review for architecture changes | Major architecture changes should be captured in ADRs and reviewed. |
+
+---
+
+## 3. System Scope and Context
+
+## 3.1 Business Context
+
+The system is a product that mediates between practitioners, administrators, model developers, and the technical infrastructure required to classify brain MRI scans.
+
+### External domain interfaces
+
+| Communication Partner | Inputs to System | Outputs from System |
+|---|---|---|
+| Medical Practitioner | MRI image, inference mode selection, optional model selection | Predicted class, confidence/probabilities, heatmap, status/errors |
+| Healthcare System Administrator | Configuration, deployment policy, model allow-list, access policy | Deployment health, audit metadata, operational alerts |
+| ML Model Developer | Model package, metadata, validation manifest | Validation result, registration status, compatibility errors |
+| Open-Source Developer | PRs, issues, documentation proposals | Review feedback, merged changes, release notes |
+| GitHub Wiki | Documentation content source | Published architecture and user documentation |
+| GitHub Issues | Bug/feature submissions | Triage state, discussion, status |
+| GitHub Actions | Build/deploy triggers | Build artifacts, deployment status |
+| Hetzner Runtime | Host resources | Running inference service, logs, metrics |
+| Slack / Mailing List | Collaboration and announcements | Shared decisions, roadmap communication |
+
+## 3.2 Technical Context
+
+The product has two operational contexts:
+
+1. **Local Mode**  
+   Browser or local package executes UI and ONNX inference locally using STLite/WASM-compatible components.
+
+2. **Remote Mode**  
+   Browser or client app encrypts image payload, sends ciphertext to server, server decrypts ephemerally, runs inference, generates heatmap, encrypts result, and returns ciphertext.
+
+### Mapping of input/output to channels
+
+| Input / Output | Channel | Notes |
+|---|---|---|
+| Local MRI upload | Browser local file API | No network transmission required |
+| Local result rendering | In-process UI rendering | Entirely local |
+| Remote MRI upload | HTTPS/TLS with client-side encrypted payload | Payload encrypted before transit |
+| Remote classification result | HTTPS/TLS with encrypted response body | Result decrypted client-side |
+| Model upload | Authenticated HTTPS API | Restricted to authorized model developers/admins |
+| Deployment automation | GitHub Actions to Hetzner over secure deployment channel | Prefer ephemeral credentials or deploy tokens |
+| Documentation updates | GitHub Wiki web/git workflow | Version-controlled documentation |
+| Collaboration | Slack / mailing list | Outside runtime path |
+
+### Scope boundary
+
+Included in scope:
+- UI for image upload and result display
+- Local inference runtime
+- Remote encrypted inference service
+- Heatmap generation
+- Model registration and compatibility validation
+- Deployment automation
+- Community contribution/documentation workflows
+
+Out of scope for the initial product architecture:
+- PACS integration
+- EHR integration
+- Patient identity management
+- DICOM archive lifecycle
+- Hospital billing workflows
+- Regulatory certification process execution itself
+
+---
+
+## 4. Solution Strategy
+
+- Security: All transferred data is E2EE, MRI never persists decrypted on server.
+- Two execution modes: browser-based WASM for accessibility, server mode for clinics.
+- Model extensibility: API for uploading custom ONNX vision models.
+- Simple, explainable UI: Streamlit/STLite; Grad-CAM heatmaps for practitioners.
+- Open source/transparent workflow: PRs, Issues, Wiki documentation, Slack community.
+- Automated deployments: Server rebuilt after every PR merge using GitHub Actions.
+
+---
+
+# 5. Building Block View
+
+## 5.1 Whitebox Overall System
+
+```mermaid
+architecture-beta
+    group client(cloud)[Client Side]
+    service ui(internet)[Practitioner UI] in client
+    service local(lock)[Local Inference Mode] in client
+    service localmodels(database)[Local Model Registry] in client
+    service remote(lock)[Remote Inference Mode] in client
+
+    group server(cloud)[Server Side]
+    service api(server)[Inference API] in server
+    service engine(server)[Inference and Heatmap Engine] in server
+    service models(database)[Server Model Registry] in server
+    service audit(database)[Audit Metadata Store] in server
+
+    group ops(cloud)[Operations]
+    service ci(server)[GitHub Actions] in ops
+    service wiki(internet)[GitHub Wiki] in ops
+
+    ui:R -- L:local
+    local:R -- L:localmodels
+    ui:B -- T:remote
+
+    remote:R -- L:api
+    api:R -- L:engine
+    engine:B -- T:models
+    api:B -- T:audit
+
+    ci:L -- R:api
+```
+
+#### Motivation
+Decouples local/remote inference, enables modular model support, and secures all patient data.
+
+#### Contained Building Blocks
+- Frontend (Streamlit/STLite)
+- Model Handler API
+- ONNX Model handler
+- Grad-CAM Visualizer
+- E2EE client/server layers
+- Hetzner server (stateless inference)
+- Model storage (developer uploads)
+
+#### Directory/File Locations
+- `frontend/` - UI code
+- `backend/` - Server, E2EE, inference
+- `models/` - Model management/upload logic
+- `.github/workflows/` - Deployment scripts
+- `docs/` - Wiki, architecture docs
+
+---
+
+## 6. Runtime View
+
+### Scenario 1: Local Classification
+
+```mermaid
+sequenceDiagram
+  participant Practitioner
+  participant STLite
+  participant ONNX
+  Practitioner->>STLite: Uploads MRI
+  STLite->>ONNX: Runs inference
+  ONNX-->>STLite: Tumor class + heatmap (Grad-CAM)
+  STLite-->>Practitioner: Displays result
+```
+
+### Scenario 2: Remote Classification
+
+```mermaid
+sequenceDiagram
+  participant Practitioner
+  participant Streamlit
+  participant E2EE
+  participant Server
+  participant ONNX
+  Practitioner->>Streamlit: Uploads MRI
+  Streamlit->>E2EE: Encrypts image
+  E2EE->>Server: Secure transfer
+  Server->>ONNX: Decrypts + infers (no data persists)
+  ONNX-->>Server: Tumor class + heatmap
+  Server->>E2EE: Encrypts result
+  E2EE->>Streamlit: Secure return
+  Streamlit-->>Practitioner: Display result
+```
+
+### Scenario 3: Model Upload
+
+```mermaid
+sequenceDiagram
+  participant ModelDev
+  participant Frontend
+  participant Server
+  participant ModelRepo
+  ModelDev->>Frontend: Uploads ONNX model
+  Frontend->>Server: Validates and registers
+  Server->>ModelRepo: Stores for inference
+  ModelRepo-->>Server: Ready
+  Server-->>Frontend: Confirmation
+```
+
+---
+
+## 7. Deployment View
+
+### Infrastructure Level 1
+
+```mermaid
+flowchart TD
+    user_device["User Device"]
+    stlite_local["STLite WASM (Local)"]
+    streamlit_client["Streamlit Client (Remote)"]
+    hetzner_server["Hetzner Server"]
+    onnx_repo["ONNX Model Repo"]
+    gha_runner["GitHub Actions Runner"]
+
+    user_device --> stlite_local
+    user_device --> streamlit_client
+    streamlit_client --> hetzner_server
+    hetzner_server --> onnx_repo
+    hetzner_server --> gha_runner
+    gha_runner --> hetzner_server
+```
+
+**Motivation:**  
+Separation of local inference (privacy, offline) and remote (scalability, model expansion). Server rebuilt after each PR for security/compliance.
+
+**Performance Features:**  
+- CI/CD ensures server always up-to-date
+- No persistent decrypted MRIs
+- Scalable server for clinics
+
+---
+
+## 8. Cross-cutting Concepts
+
+- **Security:** E2EE, stateless MRI processing
+- **Explainability:** Grad-CAM for clinical transparency
+- **Extensibility:** Model uploads via API, ONNX standard
+- **Deployment:** CI/CD, Hetzner automation
+- **Compliance:** Full privacy, HIPAA/GDPR standards
+
+---
+
+## 9. Architecture Decisions
+
+- WASM and Streamlit for dual-mode UI/inference
+- ONNX for model flexibility/extensible inference
+- E2EE everywhere, with no image persistence
+- Hetzner chosen for scalable, affordable hosting
+- GitHub Actions automates server deployment
+- Slack/mailing list selected for communication
+- Wiki for architecture documentation; PRs/Issues for dev workflow
+
+---
+
+## 10. Quality Requirements
+
+- Security: E2EE, ephemeral data
+- Usability: Streamlined UI, onboarding
+- Explainability: Grad-CAM and clear API
+- Maintainability: Open source docs, code review
+- Extensibility: ONNX plug-ins via API
+- Scalability: Automated deployment, cloud server ops
+
+---
+
+## 11. Documentation and Collaboration
+
+- **Documentation:**  
+  - GitHub Wiki (Arc42), markdown files
+- **Collaboration:**  
+  - PRs/Issues on GitHub
+  - Announcements via mailing list
+  - Slack group for live team discussion
+
+---
+
+## 12. Appendix
+
+### References
+
+- [arc42.org](https://arc42.org)
+- [ONNX](https://onnx.ai)
+- [Streamlit](https://streamlit.io)
+- [Hetzner Cloud](https://www.hetzner.com/cloud)
+- [Grad-CAM Explanation](https://arxiv.org/abs/1610.02391)
+
+### Glossary
+
+| Term      | Definition                                     |
+|-----------|------------------------------------------------|
+| E2EE      | End-to-End Encryption                          |
+| ONNX      | Open Neural Network Exchange                   |
+| STLite    | Package to run streamlit apps locally with WASM|
+| CI/CD     | Continuous Integration/Deployment              |
+
+---

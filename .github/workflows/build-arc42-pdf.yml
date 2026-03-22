@@ -47,17 +47,16 @@ jobs:
           src = Path('docs/SAA/arc42-doc.md').read_text(encoding='utf-8')
           pattern = re.compile(r'```mermaid\s*\n(.*?)\n```', re.DOTALL)
           out_dir = Path('build/mermaid')
-          counter = 1
+          counter = [1]
 
           def repl(match):
-              nonlocal counter
               diagram = match.group(1)
-              mmd_file = out_dir / f'diagram-{counter}.mmd'
-              png_file = out_dir / f'diagram-{counter}.png'
+              idx = counter[0]
+              mmd_file = out_dir / f'diagram-{idx}.mmd'
+              png_file = out_dir / f'diagram-{idx}.png'
               mmd_file.write_text(diagram, encoding='utf-8')
-              replacement = f'![Mermaid diagram {counter}]({png_file.as_posix()})'
-              counter += 1
-              return replacement
+              counter[0] += 1
+              return f'![Mermaid diagram {idx}]({png_file.as_posix()})'
 
           new_md = pattern.sub(repl, src)
           Path('build/arc42-preprocessed.md').write_text(new_md, encoding='utf-8')

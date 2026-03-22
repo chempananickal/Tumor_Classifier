@@ -237,6 +237,250 @@ Decouples local/remote inference, enables modular model support, and secures all
 
 ---
 
+## 5.2 Detailsicht ausgewählter Bausteine (Level 2)
+
+Die Level-1-Übersicht in Abschnitt 5.1 zeigt das Gesamtsystem mit seinen Hauptbausteinen auf Client-, Server- und Operations-Ebene. In diesem Abschnitt werden drei zentrale Bausteine als Whitebox verfeinert: die Inference and Heatmap Engine, die Preprocessing Pipeline und das Klassifikationsmodell mit Grad-CAM. Gemeinsam bilden diese drei Bausteine den fachlichen Kern des Systems – den vollständigen Pfad vom Bildeingang bis zum Klassifikationsergebnis mit Heatmap.
+
+### 5.2.1 Whitebox: Inference and Heatmap Engine
+
+Die Inference and Heatmap Engine ist der koordinierende Baustein des Gesamtsystems. Sie kapselt den vollständigen Verarbeitungspfad: von der Bildannahme über die Vorverarbeitung und den Forward Pass bis hin zur Heatmap-Generierung und Ergebnisrückgabe. In der Zielarchitektur kommt dieser Baustein in beiden Betriebsmodi zum Einsatz. Die fachliche Logik bleibt dabei identisch – variiert werden ausschließlich Laufzeitumgebung und Modellformat.
+
+Intern delegiert die Engine an drei spezialisierte Teilbausteine, die jeweils in eigenen Abschnitten verfeinert werden. Die Steuerung erfolgt über die zentrale Klasse `InferenceEngine`, die als Fassade gegenüber der Benutzeroberfläche (lokal) und der API (remote) dient.
+
+#### Interner Aufbau
+
+```mermaid
+graph TD
+    subgraph InferenceEngine ["Inference and Heatmap Engine"]
+        INIT["__init__()"] --> LOAD["Checkpoint / ONNX laden"]
+        INIT --> TRANS["Transformationspipeline<br/>aufbauen"]
+        LOAD --> CKPT["Modellartefakt<br/>(best.pt / model.onnx)"]
+        LOAD --> CLASSES["Klassenreihenfolge<br/>extrahieren"]
+
+        PRED["predict(image)"] --> RGB["Bild → RGB<br/>konvertieren"]
+        RGB --> TRANSFORM["Preprocessing Pipeline<br/>anwenden"]
+        TRANSFORM --> FWD["Forward Pass<br/>→ Logits"]
+        FWD --> SOFTMAX["Softmax →<br/>Wahrscheinlichkeiten"]
+        SOFTMAX --> ARGMAX["argmax →<br/>vorhergesagte Klasse"]
+        FWD --> GCAM["GradCAM.generate()"]
+        GCAM --> OVERLAY["overlay_heatmap()"]
+        ARGMAX --> RESULT["Ergebnis-Dict<br/>zusammenstellen"]
+        OVERLAY --> RESULT
+    end
+
+    EXT_IMG["PIL Image /<br/>Bilddaten"] --> PRED
+    RESULT --> EXT_UI["UI / API-Antwort"]
+
+    PP["Preprocessing Pipeline<br/>(→ 5.2.2)"] -.-> TRANSFORM
+    MOD["Klassifikationsmodell<br/>(→ 5.2.3)"] -.-> FWD
+    GC["Grad-CAM Modul<br/>(→ 5.2.3)"] -.-> GCAM
+```
+
+#### Enthaltene Teilbausteine
+
+| Teilbaustein | Verantwortung | Technologie |
+|---|---|---|
+| **Checkpoint-/Modelllader** | Lädt Modellgewichte und Klassenreihenfolge aus dem Artefakt. Erkennt verschiedene Serialisierungsformate und führt bei Bedarf eine Key-Prefix-Anpassung durch, um Kompatibilität zwischen Wrapper-Klasse und gespeichertem Zustand herzustellen. Begründung und Hintergrund: → 8.2, 9.2, 9.3. | PyTorch (`torch.load`) / ONNX Runtime |
+| **Preprocessing Pipeline** | Transformiert das Rohbild zu einem normalisierten Tensor in der vom Modell erwarteten Eingabeform. Interner Aufbau: → 5.2.2. | NumPy, PIL, Torchvision |
+| **Forward Pass + Softmax** | Führt den Vorwärtsdurchlauf durch das Klassifikationsmodell aus und wandelt die Logits über Softmax in eine Wahrscheinlichkeitsverteilung über die vier Zielklassen um. Bestimmt die vorhergesagte Klasse per `argmax`. | PyTorch / ONNX Runtime |
+| **Grad-CAM + Overlay** | Erzeugt eine Heatmap auf Basis der Hook-basierten Aktivierungs- und Gradientenerfassung und überlagert sie mit dem Originalbild. Interner Aufbau: → 5.2.3. | PyTorch Hooks, OpenCV |
+| **Ergebnis-Assemblierung** | Bündelt Klasse, Konfidenz, Einzelwahrscheinlichkeiten und Heatmap in ein strukturiertes Ergebnisobjekt, das direkt von der UI oder als API-Response konsumiert werden kann. | Python Dict / JSON |
+
+#### Schnittstellen
+
+| Richtung | Schnittstelle | Datenformat | Beschreibung |
+|---|---|---|---|
+| **Eingang** | `predict(image)` | `PIL.Image` (RGB, JPG/PNG) | Einzelnes MRT-Bild, wie vom Nutzer hochgeladen |
+| **Eingang** | Modellartefakt | `best.pt` oder `model.onnx` | Vortrainierter Checkpoint mit Gewichten und eingebetteter Klassenreihenfolge |
+| **Ausgang** | Ergebnis-Dict | `Dict[str, Any]` / JSON | Enthält `class` (str), `confidence` (float), `probs` (dict mit Klasse→Wahrscheinlichkeit), `heatmap` (RGB-Array) |
+
+#### Auswirkung der Betriebsmodi auf die Engine
+
+Die folgende Darstellung zeigt, wie derselbe fachliche Baustein in den beiden vorgesehenen Betriebsmodi eingebettet ist. Im lokalen Modus existiert kein Netzwerkverkehr; im Remote-Modus wird der Datenfluss durch die E2EE-Schicht ergänzt.
+
+```mermaid
+graph LR
+    subgraph Lokal ["Lokaler Modus · Browser"]
+        L_UI["STLite UI<br/>(WASM)"] --> L_ENG["Inference Engine<br/>(ONNX Runtime WASM)"]
+        L_ONNX["model.onnx<br/>(CDN / Cache)"] --> L_ENG
+        L_ENG --> L_RES["Ergebnis direkt<br/>im Browser anzeigen"]
+    end
+
+    subgraph Remote ["Remote-Modus · Server"]
+        R_UI["Streamlit Client"] --> R_E2EE["E2EE-Schicht<br/>(clientseitig<br/>verschlüsseln)"]
+        R_E2EE --> R_API["Inference API<br/>(Hetzner)"]
+        R_API --> R_ENG["Inference Engine<br/>(PyTorch / ONNX)"]
+        R_CKPT["Modell-Registry<br/>(Server)"] --> R_ENG
+        R_ENG --> R_RES["Ergebnis<br/>verschlüsseln"]
+        R_RES --> R_BACK["E2EE-Schicht<br/>(zurück zum Client)"]
+        R_BACK --> R_UI
+    end
+```
+
+| Aspekt | Lokaler Modus | Remote-Modus |
+|---|---|---|
+| Laufzeitumgebung | Browser (WASM-Sandbox) | Hetzner Server (Linux, Python) |
+| Modellformat | ONNX (WASM-kompatibel) | PyTorch-Checkpoint oder ONNX |
+| Grad-CAM | Vereinfacht im Browser (s. 5.2.3) | Vollständig Hook-basiert |
+| Netzwerk | Kein Netzwerkverkehr | HTTPS/TLS mit E2EE |
+| Datenhaltung | Vollständig lokal, kein Speichern | Stateless – keine persistente Speicherung |
+
+---
+
+### 5.2.2 Whitebox: Preprocessing Pipeline
+
+Die Preprocessing Pipeline ist eine geordnete, deterministische Transformationskette, die zwischen Bildeingang und Klassifikationsmodell liegt. Sie stellt sicher, dass das Modell unabhängig von Bildquelle, Auflösung oder eingebrannten Annotationen stets konsistente Eingaben erhält. In beiden Betriebsmodi wird dieselbe Pipeline mit identischen Parametern und in identischer Reihenfolge ausgeführt.
+
+#### Inferenz-Pfad
+
+Im produktiven Betrieb (lokal und remote) durchläuft jedes Bild die folgenden fünf Schritte. Augmentationsschritte sind deaktiviert, damit das Ergebnis deterministisch bleibt.
+
+```mermaid
+graph LR
+    INPUT["MRT-Bild<br/>(PIL Image,<br/>variable Auflösung)"] --> CTR["① Corner-<br/>TextRemover"]
+    CTR --> BC["② BrainCrop<br/>(optional,<br/>default: aktiv)"]
+    BC --> RS["③ Resize<br/>(224 × 224 px)"]
+    RS --> TT["④ ToTensor"]
+    TT --> NORM["⑤ Normalize<br/>(ImageNet μ/σ)"]
+    NORM --> OUTPUT["Tensor<br/>[3, 224, 224]"]
+```
+
+#### Training-Pfad (zusätzliche Augmentation)
+
+Beim Training werden zwei zusätzliche stochastische Schritte eingefügt, um die Generalisierung des Modells zu verbessern und Shortcut Learning über Bildecken zu unterbinden.
+
+```mermaid
+graph LR
+    INPUT["MRT-Bild<br/>(PIL Image)"] --> CTR["① Corner-<br/>TextRemover"]
+    CTR --> BC["② BrainCrop"]
+    BC --> RS["③ Resize<br/>(224 × 224 px)"]
+    RS --> RCM["④ Random-<br/>CornerMask<br/>(p = 0.25)"]
+    RCM --> RHF["⑤ Random-<br/>HorizontalFlip"]
+    RHF --> TT["⑥ ToTensor"]
+    TT --> NORM["⑦ Normalize<br/>(ImageNet μ/σ)"]
+    NORM --> OUTPUT["Tensor<br/>[3, 224, 224]"]
+```
+
+#### Enthaltene Teilbausteine
+
+| # | Teilbaustein | Verantwortung | Interne Arbeitsweise |
+|---|---|---|---|
+| ① | **CornerTextRemover** | Entfernt eingebrannte Scanner-Overlays und Textannotationen aus den vier Bildecken | Heuristisch, kein OCR: Für jede Ecke (quadratischer Bereich, 18 % der kurzen Bildseite) werden die mittlere Helligkeit relativ zum Gesamtbild und der Anteil an Extrempixeln (< 15 oder > 240) berechnet. Überschreiten die Werte konfigurierbare Schwellen, wird die Ecke auf Schwarz gesetzt. |
+| ② | **BrainCrop** | Schneidet das Bild auf den relevanten Gehirnbereich zu | Konvertierung in Grayscale, Schwellwert bei `max × 0.1`, Bounding-Box-Berechnung der hellen Pixel, 4 px Padding. Fallback: Bei komplett dunklem Bild wird das Originalbild unverändert zurückgegeben. |
+| ③ | **Resize** | Skaliert auf die vom Modell erwartete Eingabegröße | Feste Zielgröße 224 × 224 Pixel, passend zum DenseNet121-Standard. |
+| ④ | **RandomCornerMask** | *(nur Training)* Schwärzt zufällig 1–2 Ecken | Regularisierung: Verhindert, dass das Modell Shortcut-Features in Bildecken lernt. Ausgelöst mit Wahrscheinlichkeit 25 %, Eckgröße 18 % der kurzen Seite. Hintergrund: → ADR-003. |
+| ⑤ | **RandomHorizontalFlip** | *(nur Training)* Spiegelt das Bild horizontal | Leichte geometrische Augmentation zur Verbesserung der Rotationsinvarianz. |
+| ⑥ | **ToTensor** | Konvertiert PIL-Bild in PyTorch-Tensor | `PIL.Image → torch.Tensor [C, H, W]`, Wertebereich 0–1. |
+| ⑦ | **Normalize** | Normalisiert mit ImageNet-Statistiken | `mean = [0.485, 0.456, 0.406]`, `std = [0.229, 0.224, 0.225]`. Voraussetzung für Transfer Learning mit vortrainierten ImageNet-Gewichten. |
+
+#### Pipeline-Varianten
+
+Die drei Varianten unterscheiden sich ausschließlich durch die Aktivierung der stochastischen Augmentationsschritte. Die deterministischen Schritte (①–③, ⑥–⑦) sind in allen Varianten identisch und garantieren konsistente Eingaben unabhängig vom Ausführungszeitpunkt.
+
+| Variante | Schritte | Verwendungszweck |
+|---|---|---|
+| `train_transforms()` | ①–⑦ (alle, inkl. Augmentation) | Training des Modells |
+| `val_transforms()` | ①–③, ⑥–⑦ (ohne Augmentation) | Validierung während des Trainings |
+| `infer_transforms()` | identisch mit `val_transforms()` | Produktive Inferenz in beiden Modi |
+
+#### Schnittstellen
+
+| Richtung | Datenformat | Beschreibung |
+|---|---|---|
+| **Eingang** | `PIL.Image` (beliebige Auflösung, RGB oder Grayscale) | Rohes MRT-Bild, wie es vom Nutzer hochgeladen oder aus dem Datensatz geladen wird |
+| **Ausgang** | `torch.Tensor [1, 3, 224, 224]` (nach `unsqueeze`) | Normalisierter Tensor, direkt konsumierbar durch das Klassifikationsmodell |
+
+---
+
+### 5.2.3 Whitebox: Klassifikationsmodell und Grad-CAM
+
+Dieser Baustein umfasst zwei eng gekoppelte Teilsysteme: das DenseNet121-Klassifikationsmodell mit angepasstem Klassifikationskopf und die darauf aufbauende Grad-CAM-Visualisierung. Die enge Kopplung entsteht, weil die Heatmap-Generierung direkt von der internen Schichtstruktur des Modells abhängt – die Grad-CAM-Hooks greifen gezielt auf die letzte Faltungsschicht (`features.denseblock4`) zu.
+
+#### DenseNet121 mit Hook-Anbindung
+
+Das Backbone-Modell durchläuft vier Dense Blocks mit dazwischenliegenden Transition Layers. Am Ende des vierten Dense Blocks werden Aktivierungen und Gradienten über Hooks abgefangen, bevor die Feature Maps durch Global Average Pooling und den Klassifikationskopf zu vier Logits verdichtet werden.
+
+```mermaid
+graph TD
+    INPUT["Tensor<br/>[1, 3, 224, 224]"] --> FEAT["DenseNet121<br/>Features"]
+
+    subgraph DenseNet121 ["DenseNet121 Backbone"]
+        FEAT --> DB1["denseblock1"]
+        DB1 --> T1["transition1"]
+        T1 --> DB2["denseblock2"]
+        DB2 --> T2["transition2"]
+        T2 --> DB3["denseblock3"]
+        DB3 --> T3["transition3"]
+        T3 --> DB4["denseblock4"]
+    end
+
+    DB4 --> BN["BatchNorm +<br/>ReLU"]
+    BN --> GAP["Global Average<br/>Pooling"]
+    GAP --> HEAD["Linear<br/>(1024 → 4)"]
+    HEAD --> LOGITS["Logits [4]<br/>(glioma, meningioma,<br/>negative, pituitary)"]
+
+    DB4 -. "Forward Hook" .-> ACT["Aktivierungen<br/>[B, C, 7, 7]"]
+    DB4 -. "Backward Hook" .-> GRAD["Gradienten<br/>[B, C, 7, 7]"]
+```
+
+#### Grad-CAM-Berechnungsfluss
+
+Nach dem Forward Pass wird gezielt der Score der vorhergesagten Klasse rückpropagiert. Aus den am Hook-Punkt gespeicherten Aktivierungen und Gradienten berechnet Grad-CAM eine gewichtete Aktivierungskarte, die anschließend auf Bildgröße skaliert und mit dem Originalbild überblendet wird.
+
+```mermaid
+graph TD
+    LOGITS["Logits<br/>[4 Klassen]"] --> SELECT["Score der<br/>Zielklasse<br/>auswählen"]
+    SELECT --> BACKWARD["backward()<br/>→ Gradienten fließen<br/>zu denseblock4"]
+
+    ACT["Gespeicherte<br/>Aktivierungen<br/>[B, C, 7, 7]"] --> WSUM
+    GRAD["Gespeicherte<br/>Gradienten<br/>[B, C, 7, 7]"] --> GAP_G["Global Avg Pool<br/>der Gradienten<br/>→ Gewichte [C]"]
+    GAP_G --> WSUM["Gewichtete<br/>Summe:<br/>Σ weights × act"]
+    WSUM --> RELU["ReLU<br/>(nur positive<br/>Beiträge)"]
+    RELU --> NORM_CAM["Normalisierung<br/>auf [0, 1]"]
+    NORM_CAM --> RESIZE["Resize auf<br/>Bildgröße"]
+    RESIZE --> CMAP["Colormap JET<br/>(blau → grün<br/>→ rot)"]
+    CMAP --> BLEND["Blending:<br/>40 % Heatmap<br/>+ 60 % Original"]
+    BLEND --> HEATMAP["Fertige Heatmap<br/>(RGB uint8)"]
+```
+
+#### Enthaltene Teilbausteine
+
+| Teilbaustein | Verantwortung | Datei |
+|---|---|---|
+| **`get_model()`** | Erzeugt ein DenseNet121 mit angepasstem Klassifikationskopf: `Linear(1024 → 4)`. Optional mit vortrainierten ImageNet-Gewichten für Transfer Learning. | `models/unet_densenet.py` |
+| **`ModelWithHooks`** | Wrapper um das Basismodell. Registriert einen Forward-Hook und einen Backward-Hook auf `features.denseblock4`, um Aktivierungen und Gradienten für Grad-CAM abzufangen. Die Hooks werden beim Wrapping einmalig registriert und bleiben für die gesamte Lebensdauer des Modells aktiv. | `models/unet_densenet.py` |
+| **`GradCAM`** | Führt einen Forward Pass aus, wählt den Score der Zielklasse, propagiert rück und berechnet aus den gespeicherten Aktivierungen und Gradienten die gewichtete Aktivierungskarte. Normalisiert das Ergebnis auf den Wertebereich [0, 1]. | `app/grad_cam.py` |
+| **`overlay_heatmap()`** | Skaliert die CAM auf die Originaldimensionen des Bildes, wendet die JET-Colormap an und blendet Heatmap (α = 0.4) mit dem Originalbild (1 − α = 0.6) zu einem finalen RGB-Bild zusammen. | `app/grad_cam.py` |
+
+#### Die vier Zielklassen
+
+Die Reihenfolge der Klassen wird nicht fest im Code definiert, sondern zusammen mit den Modellgewichten im Checkpoint gespeichert und beim Laden dynamisch übernommen (→ 9.3). Dadurch bleibt die Zuordnung zwischen Logit-Index und fachlicher Klasse auch bei Änderungen am Datensatz stabil.
+
+| Index | Klasse | Fachliche Beschreibung |
+|---|---|---|
+| 0 | `glioma` | Tumor aus Gliazellen (Gehirn / Rückenmark) |
+| 1 | `meningioma` | Tumor der Hirnhäute (Meningen) |
+| 2 | `negative` | Kein erkennbarer Tumor im untersuchten Schnittbild |
+| 3 | `pituitary` | Tumor der Hypophyse (Hirnanhangdrüse) |
+
+#### Schnittstellen
+
+| Richtung | Datenformat | Beschreibung |
+|---|---|---|
+| **Eingang** | `torch.Tensor [1, 3, 224, 224]` | Vorverarbeiteter Tensor aus der Preprocessing Pipeline (→ 5.2.2) |
+| **Eingang** | Checkpoint (`best.pt`) mit Keys `model_state`, `classes` | Gespeicherter Modellzustand inkl. Klassenreihenfolge |
+| **Ausgang** | `[4]` Wahrscheinlichkeiten (float) | Softmax-Verteilung über die vier Zielklassen |
+| **Ausgang** | `np.ndarray [H, W, 3]` (RGB, uint8) | Fertige Heatmap, überlagert mit dem Originalbild |
+
+#### Auswirkung der Betriebsmodi
+
+| Aspekt | Lokaler Modus (Browser) | Remote-Modus (Server) |
+|---|---|---|
+| Modellformat | ONNX, exportiert für WASM-Kompatibilität | PyTorch-Checkpoint (`.pt`) oder ONNX |
+| Runtime | ONNX Runtime Web (WASM) | PyTorch / ONNX Runtime (nativ, CPU) |
+| Grad-CAM | Vereinfachte Berechnung: ONNX Runtime Web unterstützt keine PyTorch-Hooks. Geplant ist entweder eine JavaScript-basierte CAM-Approximation oder ein separates ONNX-Modell, das die Aktivierungskarte als zusätzlichen Output exportiert. | Vollständige Hook-basierte Grad-CAM über `ModelWithHooks`, wie im bestehenden Code implementiert |
+| Modellaustausch | Nutzer erhält das aktuelle Modell automatisch beim Laden der Webseite (CDN / Browser-Cache) | Administrator kann ONNX-Modelle über die API hochladen und in der Server Model Registry registrieren |
+
 ## 6. Runtime View
 
 ### Scenario 1: Local Classification

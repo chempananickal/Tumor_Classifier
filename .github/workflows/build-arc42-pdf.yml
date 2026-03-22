@@ -75,6 +75,11 @@ jobs:
             npx mmdc -p build/puppeteer-config.json -i "$f" -o "${f%.mmd}.png"
           done
 
+      - name: Inspect preprocessed document
+        run: |
+          sed -n '1,220p' build/arc42-preprocessed.md
+          find build/mermaid -maxdepth 1 -type f -ls || true
+
       - name: Build PDF with Pandoc
         run: |
           mkdir -p docs/SAA
@@ -82,11 +87,11 @@ jobs:
             --from markdown \
             --to pdf \
             --pdf-engine=xelatex \
+            --resource-path=.:build:build/mermaid:docs/SAA \
             --metadata title="Tumor Classifier Architecture Documentation" \
             -V geometry:margin=1in \
             -o docs/SAA/arc42-doc.pdf
 
-          echo "Checking PDF output..."
           ls -lah docs/SAA || true
           test -f docs/SAA/arc42-doc.pdf
 

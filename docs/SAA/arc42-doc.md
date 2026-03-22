@@ -1,6 +1,6 @@
 # Tumor Classifier Product Architecture Documentation (arc42 Template)
 
-*Version: 1.0 | Status: Draft (2026-03-18) | Authors: Chempananickal James (D876), Leithoff (D...), Savkov (D...)
+*Version: 1.0 | Status: Entwurf (2026-03-18) | Autoren: Chempananickal James (D876), Leithoff (D...), Savkov (D...)
 
 ---
 
@@ -8,34 +8,41 @@
 
 ### 1.1 Requirements Overview
 
-- MRI brain tumor classification supporting both fully local and client-server execution
-- Healthcare practitioners send images for remote inference (E2EE, stateless on server)
-- Model developers can upload ONNX classifiers via API
-- Product is open source, Wiki docs, contribution via PR, bug/features via GitHub Issues
-- Communication via mailing list (announcements) and Slack group (collaboration)
+- Klassifikation von Gehirntumoren in MRT-Aufnahmen, unterstützt dabei sowohl einen vollständig lokalen Modus als auch die Nutzung in einer Client-Server-Architektur.
+- Gesundheitspersonal kann Bilder zur Ferninferenz senden; die Kommunikation ist Ende-zu-Ende verschlüsselt (E2EE), und der Server speichert keine Daten dauerhaft.
+- Die Gesundheitspersonal brauchen keine tiefe ML Kentnisse, um das Tool zu verwenden.
+- Die Gesundheitspersonal brauchen keine Python installation, um Lokal Mode zu benutzen. Mit einem Klick auf einer statischen Webseite soll es auf dem Browser aktiviert werden (a la Photopea).
+- Modellentwickler können Klassifikatoren im ONNX-Format über eine API bereitstellen und aktualisieren.
+- Das Produkt wird als Open Source entwickelt; Dokumentation über ein Wiki, Beiträge erfolgen über Pull Requests, Fehler und Feature-Anfragen werden als GitHub Issues gepflegt.
+- Die Kommunikation erfolgt über eine Mailingliste (Ankündigungen) und eine Slack-Gruppe (Zusammenarbeit).
+
+*Erläuterung:*  
+Die Anforderungen beinhalten sowohl technische als auch organisatorische Aspekte. Ziel ist, eine sichere, transparente und flexible Lösung für die medizinische Bilderkennung bereitzustellen, die auf verschiedenen Ebenen (Entwicklung, Einsatz, Erweiterung) offen gestaltet ist.
 
 ### 1.2 Quality Goals
 
-| Goal           | Description                                   | Priority |
-|----------------|-------------------------------------------------------|----------|
-| Accuracy       | Reliable classification results (>90% in independent validation for every accepted model)| Highest  |
-| Security       | E2EE, no unencrypted data stored                                                         | Highest  |
-| Privacy        | No persistent patient data                                                               | Highest  |
-| Explainability | Heatmaps with Grad-CAM                                                                   | High     |
-| Customizability| ONNX model upload                                                                        | Medium   |
-| Usability      | Simple UI, clear results                                                                 | High     |
-| Open Source    | PR/Issue workflow, easy docs                                                             | High     |
-| Performance    | Fast local/server-side inference                                                         | Medium   |
+| Ziel             | Beschreibung                                                                           | Priorität   |
+|------------------|----------------------------------------------------------------------------------------|-------------|
+| Genauigkeit      | Zuverlässige Klassifikationsergebnisse (>90% Genauigkeit in unabhängiger Validierung jedes akzeptierten Modells) | Höchste     |
+| Sicherheit       | E2EE, keine unverschlüsselten Daten auf dem Server gespeichert                         | Höchste     |
+| Datenschutz      | Keine dauerhafte Speicherung von Patientendaten                                         | Höchste     |
+| Erklärbarkeit    | Heatmaps mit Grad-CAM zur Visualisierung der Modellentscheidung                         | Hoch        |
+| Anpassbarkeit    | Upload von ONNX-Modellen                                                               | Mittel      |
+| Bedienbarkeit    | Einfache Benutzeroberfläche, klare Ergebnisse                                          | Hoch        |
+| Open Source      | Pull-Request- und Issue-Workflow, leicht verständliche Dokumentation                   | Hoch        |
+| Performance      | Schnelle Inferenz lokal wie serverseitig                                               | Mittel      |
 
+*Erläuterung:* 
+Qualitätsziele sind zentral für medizinische Software. Besonders Genauigkeit, Sicherheit und Datenschutz genießen oberste Priorität, da die Ergebnisse in einem sensiblen Kontext genutzt werden. Die Erklärbarkeit trägt dazu bei, dass Nutzer/innen (ggf. ohne ML-Hintergrund) die Resultate nachvollziehen und vertrauen können.
 
 ### 1.3 Stakeholders
 
-| Role                         | Contact                | Expectations                          |
-|------------------------------|------------------------|---------------------------------------|
-| Medical Practitioners        | Clinic emails, Slack   | Reliable tumor classification         |
-| Healthcare System Administrators | Direct, Slack      | Deployment, compliance                |
-| ML Model Developers          | GitHub, Slack          | Upload/test custom models             |
-| Open Source Developers       | GitHub, Slack          | Collaboration, thorough docs/issues   |
+| Rolle                          | Kontakt              | Erwartungen                                  |
+|---------------------------------|----------------------|-----------------------------------------------|
+| Medizinisches Personal          | Klinik-E-Mail, Slack | Zuverlässige Tumorklassifikation             |
+| Administrator Gesundheitswesen  | Direkt, Slack        | Bereitstellung, Compliance                   |
+| ML-Modellentwickler             | GitHub, Slack        | Upload/Test eigener Modelle                  |
+| Open Source Entwickler          | GitHub, Slack        | Kooperation, ausführliche Dokumentation/Issues|
 
 ---
 
@@ -43,117 +50,135 @@
 
 ## 2.1 Technical Constraints
 
-| Constraint | Explanation |
-|---|---|
-| Python-centric current codebase | The current project is 100% Python, so migration should preserve leverage of existing model and inference logic where possible. |
-| Local mode must use STLite/WASM + ONNX | This constrains local execution technology and requires browser-compatible or WASM-compatible model/runtime packaging. |
-| Remote mode must support encrypted request/response flow | The architecture must include client-side encryption and carefully bounded server-side decryption/encryption. |
-| Explainability must be preserved | Heatmap generation is a product requirement, not optional functionality. |
-| Custom model upload must use a standardized API | Model plugins must conform to a stable inference contract. |
-| GitHub is the system of record for collaboration | Wiki, PRs, Issues, and Actions are mandatory workflow components. |
-| Server hosting target is Hetzner | Production infrastructure should assume Hetzner VMs, networks, storage, and operational conventions. |
+| Restriktion                             | Erklärung                                                                                         |
+|------------------------------------------|---------------------------------------------------------------------------------------------------|
+| Python-fokussierter Codebestand          | Das Projekt ist zu 100% in Python realisiert. Migrations- und Erweiterungsmaßnahmen sollten existierenden Code und Logik soweit wie möglich weiterverwenden. |
+| Lokaler Modus: STLite/WASM + ONNX        | Lokale Ausführung muss mittels browser- oder WASM-kompatibler Modellpaketierung erfolgen.         |
+| Remote-Modus: verschlüsselte Kommunikation| Die Architektur muss clientseitige Verschlüsselung und gezielten serverseitigen Ent-/Verschlüsselungsprozess vorsehen. |
+| Erklärbarkeit muss gewährleistet sein    | Heatmap-Generierung ist Produktbestandteil und keine rein optionale Funktion.                     |
+| Model-Upload via Standard-API            | Plugin-Modelle müssen einheitliche Inferenzschnittstelle einhalten.                               |
+| GitHub als "Single Source of Truth"      | Dokumentation, Pull Requests, Issues und Workflows sind obligatorische Bestandteile.              |
+| Ziel-Hosting: Hetzner                    | Die Infrastruktur nimmt Bezug auf VMs, Netze und Konventionen von Hetzner.                        |
+
+*Erläuterung:*  
+Technische Randbedingungen geben die Leitplanken für Architektur und Implementierung vor. Zu beachten sind insbesondere Schnittstellenstandards, Plattformvorgaben und Prozesse zur Sicherstellung der Verständlichkeit und Wartbarkeit.
 
 ## 2.2 Organizational Constraints
 
-| Constraint | Explanation |
-|---|---|
-| Open-source project governance | The architecture must remain understandable and contributor-friendly. |
-| Contributions via PR only | Architectural change must be reviewable and traceable. |
-| Bug reports and feature requests via Issues | Product backlog and defect tracking are GitHub-centered. |
-| Communication split across mailing list and Slack | Formal announcements and collaborative discussion occur in separate channels. |
+| Restriktion                      | Erklärung                                                             |
+|----------------------------------|-----------------------------------------------------------------------|
+| Open Source Governance           | Die Architektur muss nachvollziehbar und beitragsfreundlich bleiben.  |
+| Beiträge ausschließlich per PR   | Änderungen an der Architektur sollen stets nachvollziehbar und überprüfbar sein. |
+| Fehler und Features via Issues   | Produkt-Backlog und Bug-Tracking erfolgen GitHub-zentriert.           |
+| Getrennte Kommunikation          | Formelle Ankündigungen (Mailingliste) und Alltagskommunikation (Slack).|
+
+*Erläuterung:*
+Organisatorische Constraints fördern Transparenz, Nachvollziehbarkeit und eine offene Mitmachkultur, passend zum Charakter des Projekts als Open-Source-Lösung.
 
 ## 2.3 Regulatory / Domain Constraints
 
-| Constraint | Explanation |
-|---|---|
-| Medical context sensitivity | Even if the product is not itself a certified diagnostic device initially, it operates in a medically sensitive domain and must avoid overstated claims. |
-| Protected health information risk | MRI images may be sensitive even without explicit metadata. Privacy by design is mandatory. |
-| Auditability expectations | Institutions may expect traceability of model version, runtime version, and configuration for each inference session. |
-| Data minimization | Persistent storage of sensitive input data should be avoided wherever possible, especially in remote mode. |
+| Restriktion                   | Erklärung                                                                                                                |
+|-------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| Sensibilität im Medizinbereich| Auch ohne Zertifizierung ist Zurückhaltung bei Aussagen geboten ("nicht für die klinische Diagnose gedacht").           |
+| Datenschutz                   | Bilder von Patienten sind sensibel, auch ohne explizite Metadaten. Datenschutz muss von Anfang an eingeplant werden.    |
+| Auditierbarkeit               | Nutzer, v. a. Institutionen, erwarten Rückverfolgbarkeit von Modellversionen, Laufzeitumgebungen und Konfigurationen.    |
+| Datenminimierung              | Dauerhafte Speicherung sensibler Daten—insbesondere im Remote-Modus—ist unbedingt zu vermeiden.                         |
+
+*Erläuterung:*
+Regulatorische Rahmenbedingungen sind im medizinischen Bereich verpflichtend zu beachten und stehen häufig über technischen Erwägungen.
 
 ## 2.4 Conventions
 
-| Convention | Explanation |
-|---|---|
-| Architecture documentation in arc42 format | All major architectural documentation should remain aligned with arc42. |
-| Mermaid for diagrams | Diagrams should be text-based and version-controllable. |
-| Semantic versioning for releases | Improves traceability of deployments and model compatibility. |
-| PR-based review for architecture changes | Major architecture changes should be captured in ADRs and reviewed. |
+| Konvention                                 | Erklärung                                                                                  |
+|---------------------------------------------|--------------------------------------------------------------------------------------------|
+| Architekturdokumentation im arc42-Format    | Alle wichtigen Architekturbeschreibungen werden im etablierten arc42-Format gehalten.      |
+| Diagramme mit Mermaid                      | Textbasierte Visualisierungen können versioniert und einfach angepasst werden.             |
+| Semantische Versionsnummern                 | Damit wird die Nachvollziehbarkeit von Releases und Modellständen verbessert.              |
+| PR-basierte Reviewprozesse                  | Relevante Architekturänderungen sind durch ADRs und Reviews nachzuvollziehen.              |
+
+*Erläuterung:*  
+Konsistente Konventionen erleichtern Zusammenarbeit und Wartung sowie Onboarding neuer Beitragender. Die Einhaltung von (Branchen-)Standards ist auch für spätere auditable Projekte hilfreich.
 
 ---
 
 ## 3. System Scope and Context
 
-## 3.1 Business Context
+### 3.1 Business Context
 
-The system is a product that mediates between practitioners, administrators, model developers, and the technical infrastructure required to classify brain MRI scans.
+Das System agiert als Vermittler zwischen medizinischem Fachpersonal, Administratoren im Gesundheitswesen, Modellentwicklern und der technischen Infrastruktur, die zur Klassifikation von MRT-Bildern benötigt wird.
 
-### External domain interfaces
+#### Externe Schnittstellen
 
-| Communication Partner | Inputs to System | Outputs from System |
-|---|---|---|
-| Medical Practitioner | MRI image, inference mode selection, optional model selection | Predicted class, confidence/probabilities, heatmap, status/errors |
-| Healthcare System Administrator | Configuration, deployment policy, model allow-list, access policy | Deployment health, audit metadata, operational alerts |
-| ML Model Developer | Model package, metadata, validation manifest | Validation result, registration status, compatibility errors |
-| Open-Source Developer | PRs, issues, documentation proposals | Review feedback, merged changes, release notes |
-| GitHub Wiki | Documentation content source | Published architecture and user documentation |
-| GitHub Issues | Bug/feature submissions | Triage state, discussion, status |
-| GitHub Actions | Build/deploy triggers | Build artifacts, deployment status |
-| Hetzner Runtime | Host resources | Running inference service, logs, metrics |
-| Slack / Mailing List | Collaboration and announcements | Shared decisions, roadmap communication |
+| Kommunikationspartner             | Eingaben ins System                              | Ausgaben aus dem System                                          |
+|------------------------------------|--------------------------------------------------|------------------------------------------------------------------|
+| Medizinisches Personal             | MRT-Bild, Auswahl des Ausführungsmodus, ggf. Modellauswahl | Vorhergesagte Klasse, Wahrscheinlichkeiten/Konfidenzen, Heatmap, Status/Fehlermeldungen |
+| Systemadministrator Gesundheit     | Konfiguration, Deployments, Modell-Zulassungsliste, Zugriffskontrolle | Betriebszustand, Audit-Metadaten, Systemmeldungen               |
+| ML-Modellentwickler                | Modulpaket, Metadaten, Validierungsmanifest       | Validierungsergebnis, Registrierungsstatus, Kompatibilitätsfehler |
+| Open Source Entwickler             | PRs, Issues, Dokumentationsvorschläge             | Reviewfeedback, gemergte Änderungen, Release Notes               |
+| GitHub Wiki                        | Dokumentationsquelle                             | Veröffentlichtes Architektur– und Nutzerdokument                 |
+| GitHub Issues                      | Bug-/Featuremeldungen                            | Bearbeitungsstatus, Diskussion, Statusmeldungen                  |
+| GitHub Actions                     | Build/Deploy-Trigger                             | Buildartefakte, Deploy-Status                                    |
+| Hetzner Runtime                    | Serverressourcen                                 | Laufender Inferenzdienst, Logs, Metriken                         |
+| Slack / Mailing List               | Kollaboration, Ankündigungen                      | Geteilte Entscheidungen, Roadmap-Kommunikation                   |
 
-## 3.2 Technical Context
+*Ausführlich:*  
+Dieses Mapping erläutert, wie verschiedene Interessenten mit dem System interagieren und verdeutlicht, dass die Software bewusst als Plattform und nicht als reine Einzelanwendung konzipiert ist.
 
-The product has two operational contexts:
+### 3.2 Technical Context
 
-1. **Local Mode**  
-   Browser or local package executes UI and ONNX inference locally using STLite/WASM-compatible components.
+Das Produkt kann in zwei Betriebsarten genutzt werden:
 
-2. **Remote Mode**  
-   Browser or client app encrypts image payload, sends ciphertext to server, server decrypts ephemerally, runs inference, generates heatmap, encrypts result, and returns ciphertext.
+1. **Lokaler Modus**  
+   Die Benutzeroberfläche und die Inferenz laufen lokal im Browser (über STLite/WASM) und benötigen kein Backend.
+2. **Remote-Modus**  
+   Der Nutzer lädt ein verschlüsseltes Bild hoch, serverseitig erfolgt die temporäre Entschlüsselung und Inferenz, Ergebnis und Heatmap werden verschlüsselt zurückgegeben.
 
-### Mapping of input/output to channels
+#### Zuordnung von Ein-/Ausgaben zu Kanälen
 
-| Input / Output | Channel | Notes |
-|---|---|---|
-| Local MRI upload | Browser local file API | No network transmission required |
-| Local result rendering | In-process UI rendering | Entirely local |
-| Remote MRI upload | HTTPS/TLS with client-side encrypted payload | Payload encrypted before transit |
-| Remote classification result | HTTPS/TLS with encrypted response body | Result decrypted client-side |
-| Model upload | Authenticated HTTPS API | Restricted to authorized model developers/admins |
-| Deployment automation | GitHub Actions to Hetzner over secure deployment channel | Prefer ephemeral credentials or deploy tokens |
-| Documentation updates | GitHub Wiki web/git workflow | Version-controlled documentation |
-| Collaboration | Slack / mailing list | Outside runtime path |
+| Ein-/Ausgabe           | Kanal                                  | Hinweise                                   |
+|------------------------|----------------------------------------|--------------------------------------------|
+| Lokaler Daten-Upload   | Browser-File-API                       | Kein Netzwerkverkehr, privat               |
+| Lokale Anzeige         | Rendering in der UI                     | Komplett lokal                             |
+| Remote-Upload          | HTTPS/TLS mit clientseitiger Verschlüsselung | Daten verschlüsselt vor Übertragung        |
+| Remote-Ergebnis        | HTTPS/TLS mit verschlüsselter Antwort   | Ergebnis am Client entschlüsseln           |
+| Modell-Upload          | Authentifizierte HTTPS-API              | Nur für berechtigte Modellentwickler/Admins|
+| Deployment-Automatisierung | GitHub Actions → Hetzner Deploy-Channel | Idealerweise kurzfristige Zugangsdaten     |
+| Dokumentations-Pflege  | GitHub Wiki Web/Git-Workflow            | Versionierte Dokumentation                 |
+| Kollaboration          | Slack / Mailingliste                    | Außerhalb des Laufzeitpfads                |
 
-### Scope boundary
+##### Abgrenzung des Scopes
 
-Included in scope:
-- UI for image upload and result display
-- Local inference runtime
-- Remote encrypted inference service
-- Heatmap generation
-- Model registration and compatibility validation
-- Deployment automation
-- Community contribution/documentation workflows
+*Im Scope:*
+- Benutzeroberfläche für Upload & Ergebnisausgabe
+- Lokale Inferenz einschließlich Grad-CAM-Visualisierung
+- Remote verschlüsselte Inferenz
+- Modellregistrierung und Kompatibilitätsvalidierung
+- Automatisierte Deployments
+- Open-Source-Workflows (Beiträge, Dokumentation)
 
-Out of scope for the initial product architecture:
-- PACS integration
-- EHR integration
-- Patient identity management
-- DICOM archive lifecycle
-- Hospital billing workflows
-- Regulatory certification process execution itself
+*Außerhalb des Scopes (erste Version):*
+- PACS-Integration, EHR-Anbindung
+- Patientenidentitätsmanagement
+- DICOM-Archivierung
+- Krankenhaus-Abrechnungsprozesse
+- Durchführung regulatorischer Zertifizierungen selbst
+
+*​Erklärung:*  
+Die getrennte Betrachtung von inkludierten und ausgeschlossenen Systemteilen verbessert Fokussierung und Erwartungsmanagement bei beteiligten Stakeholdern.
 
 ---
 
 ## 4. Solution Strategy
 
-- Security: All transferred data is E2EE, MRI never persists decrypted on server.
-- Two execution modes: browser-based WASM for accessibility, server mode for clinics.
-- Model extensibility: API for uploading custom ONNX vision models.
-- Simple, explainable UI: Streamlit/STLite; Grad-CAM heatmaps for practitioners.
-- Open source/transparent workflow: PRs, Issues, Wiki documentation, Slack community.
-- Automated deployments: Server rebuilt after every PR merge using GitHub Actions.
+- **Sicherheit:** Alle übermittelten Daten sind Ende-zu-Ende verschlüsselt, keine MRT-Bilder werden unverschlüsselt auf dem Server gespeichert.
+- **Zwei Ausführungsmodi:** Browserbasiertes WASM für breite Zugänglichkeit, Servermodus für Kliniken oder komplexere Fälle.
+- **Modellerweiterbarkeit:** API-Schnittstelle für Upload und Registrierung zusätzlicher ONNX-Modelle, unterstützt verschiedene Praxisanforderungen.
+- **Einfache, erklärbare UI:** Streamlit/STLite-Bedienoberfläche, Grad-CAM-Heatmaps für medizinisches Fachpersonal zur Ergebnisprüfung.
+- **Transparenter, offener Workflow:** Arbeiten an Code und Dokumentation erfolgen über Pull Requests und Issues; Community-Kanäle fördern Beiträge.
+- **Automatisierte Deployments:** Server werden nach jedem gemergten Pull Request über GitHub Actions neu gebaut, um Sicherheit und Compliance hochzuhalten.
+
+*Ausgebaut nach arc42-Hilfe:*  
+Diese Lösungsstrategie sichert nicht nur die geforderten Qualitätsziele ab, sondern zeigt auch, wie Architekturentscheidungen zur Handhabung von Sicherheit, Erweiterbarkeit und Nachhaltigkeit beitragen. Die offene Herangehensweise fördert Innovation durch Mitwirkung, während technische und organisatorische Maßnahmen die Nutzung – gerade im sensiblen medizinischen Bereich – möglichst risikoarm gestalten.
 
 ---
 

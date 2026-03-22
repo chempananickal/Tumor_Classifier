@@ -46,9 +46,9 @@ Qualitätsziele sind zentral für medizinische Software. Besonders Genauigkeit, 
 
 ---
 
-# 2. Architecture Constraints
+## 2. Architecture Constraints
 
-## 2.1 Technical Constraints
+### 2.1 Technical Constraints
 
 | Restriktion                             | Erklärung                                                                                         |
 |------------------------------------------|---------------------------------------------------------------------------------------------------|
@@ -63,7 +63,7 @@ Qualitätsziele sind zentral für medizinische Software. Besonders Genauigkeit, 
 *Erläuterung:*  
 Technische Randbedingungen geben die Leitplanken für Architektur und Implementierung vor. Zu beachten sind insbesondere Schnittstellenstandards, Plattformvorgaben und Prozesse zur Sicherstellung der Verständlichkeit und Wartbarkeit.
 
-## 2.2 Organizational Constraints
+### 2.2 Organizational Constraints
 
 | Restriktion                      | Erklärung                                                             |
 |----------------------------------|-----------------------------------------------------------------------|
@@ -75,7 +75,7 @@ Technische Randbedingungen geben die Leitplanken für Architektur und Implementi
 *Erläuterung:*
 Organisatorische Constraints fördern Transparenz, Nachvollziehbarkeit und eine offene Mitmachkultur, passend zum Charakter des Projekts als Open-Source-Lösung.
 
-## 2.3 Regulatory / Domain Constraints
+### 2.3 Regulatory / Domain Constraints
 
 | Restriktion                   | Erklärung                                                                                                                |
 |-------------------------------|--------------------------------------------------------------------------------------------------------------------------|
@@ -87,7 +87,7 @@ Organisatorische Constraints fördern Transparenz, Nachvollziehbarkeit und eine 
 *Erläuterung:*
 Regulatorische Rahmenbedingungen sind im medizinischen Bereich verpflichtend zu beachten und stehen häufig über technischen Erwägungen.
 
-## 2.4 Conventions
+### 2.4 Conventions
 
 | Konvention                                 | Erklärung                                                                                  |
 |---------------------------------------------|--------------------------------------------------------------------------------------------|
@@ -245,15 +245,13 @@ Die Lösungsstrategie leitet sich direkt aus den Qualitätszielen (→ 1.2), den
 
 ---
 
-# 5. Building Block View
+## 5. Building Block View
 
-# 5. Building Block View
-
-## 5.1 Whitebox Gesamtsystem (Level 1)
+### 5.1 Whitebox Gesamtsystem (Level 1)
 
 Die Architektur gliedert sich in drei Gruppen: Client-Seite, Server-Seite und Operations. Diese Zerlegung spiegelt die Zweiteilung in lokalen und Remote-Modus (→ 3.2) wider und stellt sicher, dass beide Pfade dieselbe fachliche Inferenzlogik nutzen.
 
-### Übersichtsdiagramm
+#### Übersichtsdiagramm
 
 ```mermaid
 architecture-beta
@@ -285,24 +283,13 @@ architecture-beta
     ci:L -- R:api
 ```
 
-| Diagramm-Kürzel | Vollständiger Name |
-|---|---|
-| UI | Practitioner UI |
-| Local Inference | Lokaler Inferenzmodus |
-| Local Registry | Lokale Model Registry |
-| Remote Inference | Remote-Inferenzmodus (E2EE) |
-| Inference API | Inference API |
-| Heatmap Engine | Inference and Heatmap Engine |
-| Model Registry | Server Model Registry |
-| Audit Store | Audit Metadata Store |
+#### Motivation
 
-### Motivation
+1. **Entkopplung der Betriebsmodi:** Lokale und Remote-Inferenz laufen über getrennte Pfade, teilen sich aber dieselbe Engine (→ 4.1).
+2. **Modulare Modellunterstützung:** Modelle werden über eine einheitliche Registry verwaltet und sind austauschbar (→ 4.3).
+3. **Durchgängiger Datenschutz:** Daten bleiben entweder lokal oder werden im Remote-Modus durchgehend verschlüsselt. Der Server arbeitet stateless (→ 4.2).
 
-1. **Entkopplung der Betriebsmodi.** Lokale und Remote-Inferenz laufen über getrennte Pfade, teilen sich aber dieselbe Engine (→ 4.1).
-2. **Modulare Modellunterstützung.** Modelle werden über eine einheitliche Registry verwaltet und sind austauschbar (→ 4.3).
-3. **Durchgängiger Datenschutz.** Daten bleiben entweder lokal oder werden im Remote-Modus durchgehend verschlüsselt. Der Server arbeitet stateless (→ 4.2).
-
-### Enthaltene Bausteine
+#### Enthaltene Bausteine
 
 | Baustein | Verantwortung | Modus | Datei(en) / Ort |
 |---|---|---|---|
@@ -317,7 +304,7 @@ architecture-beta
 | **GitHub Actions** | CI/CD: Server nach Merge neu bauen, ONNX-Modell im CDN aktualisieren | Ops | `.github/workflows/` |
 | **GitHub Wiki** | Zentrale Dokumentation für Architektur und Beitragsrichtlinien | Ops | `docs/` |
 
-### Wichtige Schnittstellen
+#### Wichtige Schnittstellen
 
 | Schnittstelle | Von → Nach | Datenformat |
 |---|---|---|
@@ -328,7 +315,7 @@ architecture-beta
 | **Modellbereitstellung** | Registry → Engine | ONNX-Datei oder PyTorch-Checkpoint |
 | **Deployment-Trigger** | GitHub Actions → Hetzner / CDN | Build-Artefakte, ONNX-Export (→ 7) |
 
-### Verzeichniszuordnung
+#### Verzeichniszuordnung
 
 | Verzeichnis / Datei | Baustein |
 |---|---|
@@ -661,8 +648,7 @@ Dieses Szenario beschreibt, wie ein Modellentwickler einen neuen oder aktualisie
 
 Der Modellentwickler lädt über die Benutzeroberfläche ein ONNX-Modell hoch. Das Frontend leitet das Artefakt an den Server weiter, der zunächst eine Kompatibilitätsvalidierung durchführt. Geprüft wird, ob das Modell die erwartete Eingabedimension (1 × 3 × 224 × 224) akzeptiert, die korrekte Anzahl an Ausgabeklassen liefert und ein gültiges ONNX-Format aufweist. Nur bei erfolgreicher Validierung wird das Modell in der Server Model Registry registriert und steht anschließend für Inferenzanfragen zur Verfügung. Der Modellentwickler erhält eine Bestätigung oder eine detaillierte Fehlermeldung.
 
-**Architektonisch bemerkenswert** ist die Trennung zwischen Modellbereitstellung und Modellanwendung. Die Inference and Heatmap Engine (→ 5.2.1) lädt Modelle ausschließlich aus der Registry – sie kennt weder den Entwickler noch den Upload-Prozess. Dadurch bleibt die Inferenzlogik von der Modellverwaltung entkoppelt. Dieses Szenario betrifft ausschließlich den Remote-Modus; im lokalen Modus erhalten Nutzer das aktuelle Modell automatisch beim Laden der Webseite (→ 7, CDN-Verteilung). Der Upload ist nur für authentifizierte Modellentwickler und Administratoren vorgesehen (→ 3.2). Sollte ein inkompatibles Modell die Validierung passieren, wirkt sich 
-das direkt auf die Inferenzqualität aus – dieses Risiko ist in 
+**Architektonisch bemerkenswert** ist die Trennung zwischen Modellbereitstellung und Modellanwendung. Die Inference and Heatmap Engine (→ 5.2.1) lädt Modelle ausschließlich aus der Registry – sie kennt weder den Entwickler noch den Upload-Prozess. Dadurch bleibt die Inferenzlogik von der Modellverwaltung entkoppelt. Dieses Szenario betrifft ausschließlich den Remote-Modus; im lokalen Modus erhalten Nutzer das aktuelle Modell automatisch beim Laden der Webseite (→ 7, CDN-Verteilung). Der Upload ist nur für authentifizierte Modellentwickler und Administratoren vorgesehen (→ 3.2). Sollte ein inkompatibles Modell die Validierung passieren, wirkt sich das direkt auf die Inferenzqualität aus – dieses Risiko ist in 
 Abschnitt 11.2 (Abhängigkeit vom Modellartefakt) erfasst.
 
 ---

@@ -65,8 +65,14 @@ jobs:
       - name: Generate Mermaid PNGs
         run: |
           shopt -s nullglob
+          cat > build/puppeteer-config.json <<'EOF'
+          {
+            "args": ["--no-sandbox", "--disable-setuid-sandbox"]
+          }
+          EOF
+
           for f in build/mermaid/*.mmd; do
-            npx mmdc -i "$f" -o "${f%.mmd}.png"
+            npx mmdc -p build/puppeteer-config.json -i "$f" -o "${f%.mmd}.png"
           done
 
       - name: Build PDF with Pandoc

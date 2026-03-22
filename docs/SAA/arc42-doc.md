@@ -247,8 +247,6 @@ Die Lösungsstrategie leitet sich direkt aus den Qualitätszielen (→ 1.2), den
 
 # 5. Building Block View
 
-# 5. Building Block View
-
 ## 5.1 Whitebox Gesamtsystem (Level 1)
 
 Die Architektur gliedert sich in drei Gruppen: Client-Seite, Server-Seite und Operations. Diese Zerlegung spiegelt die Zweiteilung in lokalen und Remote-Modus (→ 3.2) wider und stellt sicher, dass beide Pfade dieselbe fachliche Inferenzlogik nutzen.

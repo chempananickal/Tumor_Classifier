@@ -103,6 +103,9 @@ jobs:
                   margin: 0 auto;
                   padding: 32px;
                   background: #ffffff;
+                  font-size: 14px;
+                  line-height: 1.6;
+                  word-wrap: break-word;
                 }
 
                 .markdown-body pre {
@@ -161,8 +164,8 @@ jobs:
                     .replaceAll("&", "&amp;")
                     .replaceAll("<", "&lt;")
                     .replaceAll(">", "&gt;");
-                  const langClass = lang ? ` class="language-${lang}"` : "";
-                  return `<pre><code${langClass}>${escaped}</code></pre>`;
+                  const langClass = lang ? ' class="language-' + lang + '"' : "";
+                  return '<pre><code' + langClass + '>' + escaped + '</code></pre>';
                 };
 
                 marked.setOptions({
@@ -178,8 +181,8 @@ jobs:
                 for (const block of mermaidBlocks) {
                   const graphDefinition = block.textContent;
                   const id = "mermaid-" + Math.random().toString(36).slice(2);
-                  const { svg } = await mermaid.render(id, graphDefinition);
-                  block.innerHTML = svg;
+                  const result = await mermaid.render(id, graphDefinition);
+                  block.innerHTML = result.svg;
                 }
 
                 window.__PDF_READY__ = true;
@@ -222,19 +225,6 @@ jobs:
           console.log(`Created ${outputPdf} (${stats.size} bytes)`);
           EOF
 
-          cat > package.json <<'EOF'
-          {
-            "name": "arc42-pdf-builder",
-            "private": true,
-            "type": "module",
-            "dependencies": {
-              "playwright": "^1.52.0"
-            }
-          }
-          EOF
-
-          npm install
-          npx playwright install --with-deps chromium
           node render-github-markdown-to-pdf.mjs
 
       - name: Verify PDF exists

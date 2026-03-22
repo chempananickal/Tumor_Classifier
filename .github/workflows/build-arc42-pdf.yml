@@ -137,7 +137,12 @@ jobs:
             node.querySelectorAll("details").forEach((el) => el.setAttribute("open", "open"));
           });
 
-          await article.pdf({
+          const articleBox = await article.boundingBox();
+          if (!articleBox) {
+            throw new Error("Could not determine article bounding box.");
+          }
+
+          await page.pdf({
             path: outputPdf,
             format: "A4",
             printBackground: true,

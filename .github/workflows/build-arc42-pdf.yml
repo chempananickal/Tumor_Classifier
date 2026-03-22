@@ -77,6 +77,7 @@ jobs:
 
       - name: Build PDF with Pandoc
         run: |
+          mkdir -p docs/SAA
           pandoc build/arc42-preprocessed.md \
             --from markdown \
             --to pdf \
@@ -84,6 +85,10 @@ jobs:
             --metadata title="Tumor Classifier Architecture Documentation" \
             -V geometry:margin=1in \
             -o docs/SAA/arc42-doc.pdf
+
+          echo "Checking PDF output..."
+          ls -lah docs/SAA || true
+          test -f docs/SAA/arc42-doc.pdf
 
       - name: Commit PDF if changed
         run: |

@@ -1,0 +1,114 @@
+name: Build Arc42 PDF
+
+on:
+  push:
+    paths:
+      - "docs/SAA/arc42-doc.md"
+      - ".github/workflows/build-arc42-pdf.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: |
+          npm install marked mermaid puppeteer
+
+      - name: Build HTML and PDF
+        run: |
+          cat > build-pdf.mjs <<'EOF'
+          import fs from 'fs/promises';
+          import path from 'path';
+          import { marked } from 'marked';
+          import puppeteer from 'puppeteer';
+
+          const inputPath = 'docs/SAA/arc42-doc.md';
+          const outputPdf = 'docs/SAA/arc42-doc.pdf';
+
+          const md = await fs.readFile(inputPath, 'utf-8');
+
+          // Simple Mermaid replacement: render diagram blocks into placeholders
+          const mermaidBlocks = [];
+          let index = 0;
+
+          const replaced = md.replace(/```mermaid\s*\n([\s\S]*?)\n```/g, (_, code) => {
+            const id = `mermaid-${index++}`;
+            mermaidBlocks.push({ id, code });
+            return `<div class="mermaid" id="${id}">${code.replace(/</g, '&lt;')}</div>`;
+          });
+
+          const body = marked.parse(replaced);
+
+          const html = `<!doctype html>
+          <html>
+          <head>
+            <meta charset="utf-8" />
+            <title>Arc42 PDF</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 32px; line-height: 1.5; }
+              img { max-width: 100%; }
+              pre { white-space: pre-wrap; }
+              code { font-family: monospace; }
+              h1, h2, h3, h4 { page-break-after: avoid; }
+              .mermaid { margin: 16px 0; }
+            </style>
+            <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+            <script>
+              mermaid.initialize({ startOnLoad: true, theme: 'default' });
+            </script>
+          </head>
+          <body>
+            ${body}
+          </body>
+          </html>`;
+
+          await fs.mkdir(path.dirname(outputPdf), { recursive: true });
+
+          const browser = await puppeteer.launch({
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+          });
+          const page = await browser.newPage();
+          await page.setContent(html, { waitUntil: 'networkidle0' });
+          await page.pdf({
+            path: outputPdf,
+            format: 'A4',
+            printBackground: true,
+            margin: { top: '20mm', right: '15mm', bottom: '20mm', left: '15mm' }
+          });
+          await browser.close();
+          EOF
+
+          node build-pdf.mjs
+
+      - name: Commit PDF if changed
+        run: |
+          if [ ! -f docs/SAA/arc42-doc.pdf ]; then
+            echo "PDF was not generated."
+            exit 1
+          fi
+
+          if git diff --quiet -- docs/SAA/arc42-doc.pdf; then
+            echo "No PDF changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/SAA/arc42-doc.pdf
+          git commit -m "Update arc42 PDF"
+          git push

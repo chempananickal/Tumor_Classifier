@@ -46,11 +46,8 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Render GitHub Markdown page to PDF
+      - name: Render Markdown to PDF
         env:
-          GITHUB_OWNER: chempananickal
-          GITHUB_REPO: Tumor_Classifier
-          GITHUB_REF_NAME: ${{ github.ref_name }}
           INPUT_MD: docs/SAA/arc42-doc.md
           OUTPUT_PDF: docs/SAA/arc42-doc.pdf
         run: |
@@ -59,99 +56,156 @@ jobs:
           import path from "node:path";
           import { chromium } from "playwright";
 
-          const owner = process.env.GITHUB_OWNER;
-          const repo = process.env.GITHUB_REPO;
-          const ref = process.env.GITHUB_REF_NAME;
           const inputPath = process.env.INPUT_MD;
           const outputPdf = process.env.OUTPUT_PDF;
 
-          if (!owner || !repo || !ref || !inputPath || !outputPdf) {
+          if (!inputPath || !outputPdf) {
             throw new Error("Missing required environment variables.");
           }
 
-          const url = `https://github.com/${owner}/${repo}/blob/${ref}/${inputPath}`;
+          if (!fs.existsSync(inputPath)) {
+            throw new Error(`Markdown file not found: ${inputPath}`);
+          }
 
+          const markdown = fs.readFileSync(inputPath, "utf8");
           fs.mkdirSync(path.dirname(outputPdf), { recursive: true });
+
+          const html = String.raw`<!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              <title>arc42-doc</title>
+
+              <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.8.1/github-markdown-light.min.css">
+
+              <style>
+                @page {
+                  size: A4;
+                  margin: 16mm 12mm 16mm 12mm;
+                }
+
+                html, body {
+                  margin: 0;
+                  padding: 0;
+                  background: #ffffff;
+                }
+
+                body {
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                }
+
+                .markdown-body {
+                  box-sizing: border-box;
+                  max-width: 980px;
+                  margin: 0 auto;
+                  padding: 32px;
+                  background: #ffffff;
+                }
+
+                .markdown-body pre {
+                  white-space: pre-wrap;
+                }
+
+                .markdown-body img,
+                .markdown-body svg {
+                  max-width: 100%;
+                }
+
+                .mermaid {
+                  text-align: center;
+                  margin: 1.25rem 0;
+                }
+
+                @media print {
+                  .markdown-body {
+                    max-width: none;
+                    margin: 0;
+                    padding: 0;
+                  }
+
+                  h1, h2, h3, h4 {
+                    page-break-after: avoid;
+                  }
+
+                  pre, blockquote, table, img, svg {
+                    page-break-inside: avoid;
+                  }
+                }
+              </style>
+            </head>
+            <body>
+              <article id="content" class="markdown-body">Loading…</article>
+
+              <script type="module">
+                import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+                import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+                const source = ${JSON.stringify(markdown)};
+
+                mermaid.initialize({
+                  startOnLoad: false,
+                  securityLevel: "loose",
+                  theme: "default"
+                });
+
+                const renderer = new marked.Renderer();
+
+                renderer.code = ({ text, lang }) => {
+                  if (lang === "mermaid") {
+                    return '<div class="mermaid">' + text + '</div>';
+                  }
+                  const escaped = text
+                    .replaceAll("&", "&amp;")
+                    .replaceAll("<", "&lt;")
+                    .replaceAll(">", "&gt;");
+                  const langClass = lang ? ` class="language-${lang}"` : "";
+                  return `<pre><code${langClass}>${escaped}</code></pre>`;
+                };
+
+                marked.setOptions({
+                  gfm: true,
+                  breaks: false,
+                  renderer
+                });
+
+                const content = document.getElementById("content");
+                content.innerHTML = marked.parse(source);
+
+                const mermaidBlocks = Array.from(document.querySelectorAll(".mermaid"));
+                for (const block of mermaidBlocks) {
+                  const graphDefinition = block.textContent;
+                  const id = "mermaid-" + Math.random().toString(36).slice(2);
+                  const { svg } = await mermaid.render(id, graphDefinition);
+                  block.innerHTML = svg;
+                }
+
+                window.__PDF_READY__ = true;
+              </script>
+            </body>
+          </html>`;
 
           const browser = await chromium.launch({ headless: true });
           const page = await browser.newPage({
             viewport: { width: 1440, height: 2200 }
           });
 
-          await page.goto(url, { waitUntil: "domcontentloaded", timeout: 120000 });
-
-          await page.waitForSelector("article.markdown-body", { timeout: 120000 });
-
-          await page.waitForFunction(() => {
-            const article = document.querySelector("article.markdown-body");
-            return article && article.innerText.trim().length > 0;
-          }, { timeout: 120000 });
-
-          await page.waitForTimeout(5000);
-
-          await page.addStyleTag({
-            content: `
-              header, footer, nav, aside,
-              .js-header-wrapper,
-              .file-header,
-              .Box-header,
-              .react-blob-header,
-              .Layout-sidebar,
-              .discussion-sidebar,
-              .gh-header-show,
-              .UnderlineNav,
-              .Breadcrumbs,
-              .BlobToolbar,
-              .Box-sc-g0xbh4-0,
-              .prc-PageLayout-VerticalDivider,
-              .prc-PageLayout-Pane,
-              .prc-PageLayout-Content + div {
-                display: none !important;
-              }
-
-              body {
-                background: white !important;
-              }
-
-              main, .application-main, .container-xl, .container-lg, .container-md {
-                max-width: 100% !important;
-                width: 100% !important;
-              }
-
-              article.markdown-body {
-                max-width: 980px !important;
-                margin: 0 auto !important;
-                padding: 32px !important;
-                font-size: 14px !important;
-                line-height: 1.6 !important;
-                background: white !important;
-              }
-            `
+          await page.setContent(html, {
+            waitUntil: "networkidle",
+            timeout: 120000
           });
 
-          const article = page.locator("article.markdown-body").first();
-
-          await article.scrollIntoViewIfNeeded();
-
-          await article.evaluate((node) => {
-            node.querySelectorAll("details").forEach((el) => el.setAttribute("open", "open"));
+          await page.waitForFunction(() => window.__PDF_READY__ === true, null, {
+            timeout: 120000
           });
-
-          const articleBox = await article.boundingBox();
-          if (!articleBox) {
-            throw new Error("Could not determine article bounding box.");
-          }
 
           await page.pdf({
             path: outputPdf,
             format: "A4",
             printBackground: true,
-            margin: {
-              top: "16mm",
-              right: "12mm",
-              bottom: "16mm",
-              left: "12mm"
-            }
+            preferCSSPageSize: true
           });
 
           await browser.close();
@@ -165,9 +219,22 @@ jobs:
             throw new Error(`PDF was created but is empty: ${outputPdf}`);
           }
 
-          console.log(`Created ${outputPdf} (${stats.size} bytes) from ${url}`);
+          console.log(`Created ${outputPdf} (${stats.size} bytes)`);
           EOF
 
+          cat > package.json <<'EOF'
+          {
+            "name": "arc42-pdf-builder",
+            "private": true,
+            "type": "module",
+            "dependencies": {
+              "playwright": "^1.52.0"
+            }
+          }
+          EOF
+
+          npm install
+          npx playwright install --with-deps chromium
           node render-github-markdown-to-pdf.mjs
 
       - name: Verify PDF exists

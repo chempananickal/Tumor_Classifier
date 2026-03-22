@@ -170,35 +170,104 @@ Die getrennte Betrachtung von inkludierten und ausgeschlossenen Systemteilen ver
 
 ## 4. Solution Strategy
 
-- **Sicherheit:** Alle übermittelten Daten sind Ende-zu-Ende verschlüsselt, keine MRT-Bilder werden unverschlüsselt auf dem Server gespeichert.
-- **Zwei Ausführungsmodi:** Browserbasiertes WASM für breite Zugänglichkeit, Servermodus für Kliniken oder komplexere Fälle.
-- **Modellerweiterbarkeit:** API-Schnittstelle für Upload und Registrierung zusätzlicher ONNX-Modelle, unterstützt verschiedene Praxisanforderungen.
-- **Einfache, erklärbare UI:** Streamlit/STLite-Bedienoberfläche, Grad-CAM-Heatmaps für medizinisches Fachpersonal zur Ergebnisprüfung.
-- **Transparenter, offener Workflow:** Arbeiten an Code und Dokumentation erfolgen über Pull Requests und Issues; Community-Kanäle fördern Beiträge.
-- **Automatisierte Deployments:** Server werden nach jedem gemergten Pull Request über GitHub Actions neu gebaut, um Sicherheit und Compliance hochzuhalten.
+Die Lösungsstrategie leitet sich direkt aus den Qualitätszielen (→ 1.2), den Randbedingungen (→ 2) und den Stakeholder-Erwartungen (→ 1.3) ab. Jede der folgenden Strategieentscheidungen adressiert mindestens ein zentrales Qualitätsziel und respektiert dabei die technischen und organisatorischen Constraints. Detaillierte Architekturentscheidungen einschließlich verworfener Alternativen werden in Kapitel 9 behandelt und hier nicht vorweggenommen.
 
-*Ausgebaut nach arc42-Hilfe:*  
-Diese Lösungsstrategie sichert nicht nur die geforderten Qualitätsziele ab, sondern zeigt auch, wie Architekturentscheidungen zur Handhabung von Sicherheit, Erweiterbarkeit und Nachhaltigkeit beitragen. Die offene Herangehensweise fördert Innovation durch Mitwirkung, während technische und organisatorische Maßnahmen die Nutzung – gerade im sensiblen medizinischen Bereich – möglichst risikoarm gestalten.
+### 4.1 Zwei getrennte Ausführungsmodi
+
+| Aspekt | Details |
+|---|---|
+| **Entscheidung** | Das System wird in zwei unabhängigen Betriebsmodi angeboten: einem vollständig lokalen Browser-Modus (STLite/WASM + ONNX) und einem Remote-Modus mit verschlüsselter Client-Server-Kommunikation (Hetzner). |
+| **Adressierte Qualitätsziele** | Datenschutz, Sicherheit (→ 1.2: Höchste Priorität), Performance (→ 1.2: Mittel) |
+| **Adressierte Constraints** | Lokaler Modus: STLite/WASM + ONNX (→ 2.1), Remote-Modus: verschlüsselte Kommunikation (→ 2.1), Ziel-Hosting Hetzner (→ 2.1) |
+| **Begründung** | Die Trennung ermöglicht es, den stärksten Datenschutz (kein Netzwerkverkehr, keine Daten verlassen das Gerät) mit der stärksten Inferenzqualität (vollständiges PyTorch-Modell, Hook-basierte Grad-CAM auf dem Server) zu kombinieren, ohne einen der beiden Aspekte opfern zu müssen. Nutzer, die maximale Privatsphäre bevorzugen, wählen den lokalen Modus; Kliniken, die auf serverseitige Rechenleistung und vollständige Erklärbarkeit angewiesen sind, nutzen den Remote-Modus. |
+| **Auswirkung auf Architektur** | Die Inference and Heatmap Engine (→ 5.2.1) muss in beiden Modi funktionieren. Das erzwingt eine saubere Trennung zwischen fachlicher Inferenzlogik und Laufzeitumgebung. Die infrastrukturellen Konsequenzen sind in Kapitel 7 dargestellt. |
+
+### 4.2 Ende-zu-Ende-Verschlüsselung im Remote-Modus
+
+| Aspekt | Details |
+|---|---|
+| **Entscheidung** | Alle Bilddaten werden clientseitig verschlüsselt, bevor sie den Browser verlassen. Der Server entschlüsselt temporär im Arbeitsspeicher, führt die Inferenz durch und verwirft das entschlüsselte Material sofort. Ergebnisse werden vor der Rückgabe erneut verschlüsselt. |
+| **Adressierte Qualitätsziele** | Sicherheit, Datenschutz (→ 1.2: Höchste Priorität) |
+| **Adressierte Constraints** | Verschlüsselte Kommunikation (→ 2.1), Datenminimierung (→ 2.3), keine dauerhafte Speicherung (→ 2.3) |
+| **Begründung** | Im medizinischen Kontext sind MRT-Bilder sensible Patientendaten. Selbst bei einer kompromittierten Netzwerkverbindung oder einem Servereinbruch dürfen keine verwertbaren Bilddaten offenliegen. Die Statelessness des Servers stellt sicher, dass nach Abschluss einer Anfrage kein Datenmaterial persistiert. |
+| **Auswirkung auf Architektur** | Die E2EE-Schicht wird als eigenständiger Baustein zwischen Client-UI und Inference API eingefügt (→ 5.1). Die Inferenzlogik selbst bleibt davon unberührt. Sie erhält in beiden Modi ein entschlüsseltes PIL-Image als Eingabe (→ 5.2.1, Schnittstellen). |
+
+### 4.3 Modulare Modellerweiterbarkeit über ONNX
+
+| Aspekt | Details |
+|---|---|
+| **Entscheidung** | Modellentwickler können eigene Klassifikatoren im ONNX-Format über eine authentifizierte API hochladen und registrieren. Das System validiert Kompatibilität vor der Freischaltung. |
+| **Adressierte Qualitätsziele** | Anpassbarkeit (→ 1.2: Mittel) |
+| **Adressierte Constraints** | Model-Upload via Standard-API (→ 2.1), Python-fokussierter Codebestand (→ 2.1) |
+| **Begründung** | Ein festes Modell würde den Einsatz auf genau einen Anwendungsfall beschränken. Durch die ONNX-Schnittstelle wird das System zur Plattform: Verschiedene Kliniken können spezialisierte Modelle einbringen, ohne den Anwendungscode ändern zu müssen. ONNX als Format wurde gewählt, weil es framework-unabhängig ist und sowohl im Browser (ONNX Runtime Web) als auch auf dem Server (ONNX Runtime, PyTorch) ausführbar ist. |
+| **Auswirkung auf Architektur** | Die Inference and Heatmap Engine arbeitet gegen eine einheitliche Modellschnittstelle, nicht gegen eine feste Modelldatei. Die Server Model Registry (→ 5.1) und die Validierung beim Upload (→ 6, Scenario 3) sind direkte Konsequenzen dieser Entscheidung. |
+
+### 4.4 Erklärbare Inferenz durch integrierte Grad-CAM
+
+| Aspekt | Details |
+|---|---|
+| **Entscheidung** | Jede Vorhersage wird standardmäßig durch eine Grad-CAM-Heatmap ergänzt. Die Visualisierung ist kein optionales Feature, sondern Bestandteil der regulären Ausgabe. |
+| **Adressierte Qualitätsziele** | Erklärbarkeit (→ 1.2: Hoch), Bedienbarkeit (→ 1.2: Hoch) |
+| **Adressierte Constraints** | Erklärbarkeit muss gewährleistet sein (→ 2.1) |
+| **Begründung** | Medizinisches Fachpersonal ohne ML-Hintergrund muss nachvollziehen können, auf welcher Grundlage das System eine Klasse vorhersagt. Eine reine Wahrscheinlichkeitsangabe reicht dafür nicht aus. Die Heatmap zeigt visuell, welche Bildbereiche die Entscheidung des Modells beeinflusst haben, und schafft damit eine Brücke zwischen Modellergebnis und fachlicher Einordnung. |
+| **Auswirkung auf Architektur** | Grad-CAM wird als fester Bestandteil der Inference and Heatmap Engine implementiert, was eine enge Kopplung zwischen Modellstruktur und Visualisierung erzeugt (→ 5.2.3, 8.3, 9.5). |
+
+### 4.5 Streamlit/STLite als einheitliche Benutzeroberfläche
+
+| Aspekt | Details |
+|---|---|
+| **Entscheidung** | Die Benutzeroberfläche wird mit Streamlit realisiert. Für den lokalen Modus wird STLite eingesetzt, das Streamlit-Anwendungen als WASM-Modul im Browser ausführt. |
+| **Adressierte Qualitätsziele** | Bedienbarkeit (→ 1.2: Hoch), Performance (→ 1.2: Mittel) |
+| **Adressierte Constraints** | Python-fokussierter Codebestand (→ 2.1), keine Python-Installation nötig für Lokalnutzung (→ 1.1) |
+| **Begründung** | Streamlit erlaubt es, die gesamte Oberfläche in Python zu implementieren – konsistent mit dem 100%-Python-Codebestand. Gleichzeitig ermöglicht STLite, dass Nutzer die Anwendung im Browser öffnen können, ohne Python, Conda oder andere Abhängigkeiten zu installieren. Für medizinisches Fachpersonal senkt das die Einstiegshürde erheblich. |
+| **Auswirkung auf Architektur** | Beide Modi teilen sich denselben UI-Code. Die Unterscheidung zwischen lokal und remote geschieht unterhalb der Oberflächenschicht (→ 5.1, Client-Seite). Die bewusste Entscheidung gegen ein separates Frontend-Framework reduziert die Technologievielfalt und vereinfacht das Onboarding neuer Beitragender (→ 2.2). |
+
+### 4.6 Transparenter Open-Source-Workflow mit automatisierten Deployments
+
+| Aspekt | Details |
+|---|---|
+| **Entscheidung** | Code- und Architekturänderungen werden ausschließlich über Pull Requests eingebracht. Nach jedem gemergten PR wird der Server über GitHub Actions automatisch neu gebaut und deployt. Fehler und Features werden als GitHub Issues gepflegt, Architekturentscheidungen als ADRs dokumentiert. |
+| **Adressierte Qualitätsziele** | Open Source (→ 1.2: Hoch) |
+| **Adressierte Constraints** | Open Source Governance (→ 2.2), Beiträge per PR (→ 2.2), Fehler/Features via Issues (→ 2.2), GitHub als Single Source of Truth (→ 2.1), Auditierbarkeit (→ 2.3) |
+| **Begründung** | In einem Open-Source-Projekt mit mehreren Stakeholder-Gruppen (→ 1.3) ist Nachvollziehbarkeit entscheidend. Automatisierte Deployments stellen sicher, dass der produktive Server stets dem aktuellen Stand des Hauptbranches entspricht. Manuelle Deployment-Schritte entfallen, und Sicherheitspatches werden zeitnah ausgerollt. |
+| **Auswirkung auf Architektur** | GitHub Actions und der Hetzner-Deploy-Channel werden als Operations-Bausteine in die Architektur aufgenommen (→ 5.1, Ops-Gruppe). Die CI/CD-Pipeline deckt sowohl den Server-Build als auch die Aktualisierung des ONNX-Modells im CDN ab (→ 7, Infrastrukturdiagramm). |
+
+### Strategiematrix
+
+| Strategie | Primäre Qualitätsziele | Primäre Constraints |
+|---|---|---|
+| Zwei Ausführungsmodi (→ 4.1) | Datenschutz, Sicherheit, Performance | 2.1 (STLite/WASM, Hetzner) |
+| E2EE im Remote-Modus (→ 4.2) | Sicherheit, Datenschutz | 2.1 (verschl. Kommunikation), 2.3 (Datenminimierung) |
+| ONNX-Modellerweiterbarkeit (→ 4.3) | Anpassbarkeit | 2.1 (Standard-API, Python) |
+| Integrierte Grad-CAM (→ 4.4) | Erklärbarkeit, Bedienbarkeit | 2.1 (Erklärbarkeit gewährleisten) |
+| Streamlit/STLite UI (→ 4.5) | Bedienbarkeit, Performance | 2.1 (Python), 1.1 (keine Installation) |
+| Open-Source-Workflow + CI/CD (→ 4.6) | Open Source | 2.1 (GitHub), 2.2 (PR, Issues), 2.3 (Auditierbarkeit) |
 
 ---
 
 # 5. Building Block View
 
-## 5.1 Whitebox Overall System
+# 5. Building Block View
+
+## 5.1 Whitebox Gesamtsystem (Level 1)
+
+Die Architektur gliedert sich in drei Gruppen: Client-Seite, Server-Seite und Operations. Diese Zerlegung spiegelt die Zweiteilung in lokalen und Remote-Modus (→ 3.2) wider und stellt sicher, dass beide Pfade dieselbe fachliche Inferenzlogik nutzen.
+
+### Übersichtsdiagramm
 
 ```mermaid
 architecture-beta
-    group client(cloud)[Client Side]
-    service ui(internet)[Practitioner UI] in client
-    service local(lock)[Local Inference Mode] in client
-    service localmodels(database)[Local Model Registry] in client
-    service remote(lock)[Remote Inference Mode] in client
+    group client(cloud)[Client]
+    service ui(internet)[UI] in client
+    service local(lock)[Local Inference] in client
+    service localmodels(database)[Local Registry] in client
+    service remote(lock)[Remote Inference] in client
 
-    group server(cloud)[Server Side]
+    group server(cloud)[Server]
     service api(server)[Inference API] in server
-    service engine(server)[Inference and Heatmap Engine] in server
-    service models(database)[Server Model Registry] in server
-    service audit(database)[Audit Metadata Store] in server
+    service engine(server)[Heatmap Engine] in server
+    service models(database)[Model Registry] in server
+    service audit(database)[Audit Store] in server
 
     group ops(cloud)[Operations]
     service ci(server)[GitHub Actions] in ops
@@ -216,30 +285,68 @@ architecture-beta
     ci:L -- R:api
 ```
 
-#### Motivation
-Decouples local/remote inference, enables modular model support, and secures all patient data.
+| Diagramm-Kürzel | Vollständiger Name |
+|---|---|
+| UI | Practitioner UI |
+| Local Inference | Lokaler Inferenzmodus |
+| Local Registry | Lokale Model Registry |
+| Remote Inference | Remote-Inferenzmodus (E2EE) |
+| Inference API | Inference API |
+| Heatmap Engine | Inference and Heatmap Engine |
+| Model Registry | Server Model Registry |
+| Audit Store | Audit Metadata Store |
 
-#### Contained Building Blocks
-- Frontend (Streamlit/STLite)
-- Model Handler API
-- ONNX Model handler
-- Grad-CAM Visualizer
-- E2EE client/server layers
-- Hetzner server (stateless inference)
-- Model storage (developer uploads)
+### Motivation
 
-#### Directory/File Locations
-- `frontend/` - UI code
-- `backend/` - Server, E2EE, inference
-- `models/` - Model management/upload logic
-- `.github/workflows/` - Deployment scripts
-- `docs/` - Wiki, architecture docs
+1. **Entkopplung der Betriebsmodi.** Lokale und Remote-Inferenz laufen über getrennte Pfade, teilen sich aber dieselbe Engine (→ 4.1).
+2. **Modulare Modellunterstützung.** Modelle werden über eine einheitliche Registry verwaltet und sind austauschbar (→ 4.3).
+3. **Durchgängiger Datenschutz.** Daten bleiben entweder lokal oder werden im Remote-Modus durchgehend verschlüsselt. Der Server arbeitet stateless (→ 4.2).
+
+### Enthaltene Bausteine
+
+| Baustein | Verantwortung | Modus | Datei(en) / Ort |
+|---|---|---|---|
+| **Practitioner UI** | Bildupload, Modusauswahl, Ergebnisanzeige | Beide | `app/main.py` |
+| **Lokaler Inferenzmodus** | Vollständige Inferenz im Browser via STLite + ONNX Runtime Web. Kein Netzwerkverkehr. | Lokal | Browser (WASM) |
+| **Lokale Model Registry** | ONNX-Modell via CDN bereitstellen und im Browser cachen | Lokal | CDN / Browser-Cache |
+| **Remote-Inferenzmodus** | Bild clientseitig verschlüsseln (E2EE), an API senden, Ergebnis entschlüsseln | Remote | Browser (JS-E2EE) |
+| **Inference API** | REST-Endpunkt: verschlüsselte Bilder entgegennehmen, an Engine delegieren, Ergebnis verschlüsselt zurückgeben | Remote | Hetzner Server (geplant) |
+| **Inference and Heatmap Engine** | Kernbaustein: Preprocessing → Forward Pass → Grad-CAM → Ergebnis. Whitebox: → 5.2 | Beide | `app/inference.py`, `app/preprocessing.py`, `app/grad_cam.py`, `models/unet_densenet.py` |
+| **Server Model Registry** | ONNX-Modelle validieren (Dimensionen, Klassen, Format) und für Inferenz freischalten | Remote | Hetzner Server (geplant) |
+| **Audit Metadata Store** | Anfragemetadaten protokollieren (Zeitstempel, Modellversion, Klasse, Laufzeit). Keine Bilddaten. | Remote | Hetzner Server (geplant, → 8.6) |
+| **GitHub Actions** | CI/CD: Server nach Merge neu bauen, ONNX-Modell im CDN aktualisieren | Ops | `.github/workflows/` |
+| **GitHub Wiki** | Zentrale Dokumentation für Architektur und Beitragsrichtlinien | Ops | `docs/` |
+
+### Wichtige Schnittstellen
+
+| Schnittstelle | Von → Nach | Datenformat |
+|---|---|---|
+| **Bildupload** | UI → Lokaler / Remote-Modus | `PIL.Image` (JPG/PNG) |
+| **Verschlüsselter Transfer** | Remote-Modus → Inference API | Byte-Array (HTTPS + E2EE) |
+| **Inferenzauftrag** | Inference API → Engine | Entschlüsseltes `PIL.Image` |
+| **Inferenzergebnis** | Engine → API / UI | `Dict{class, confidence, probs, heatmap}` |
+| **Modellbereitstellung** | Registry → Engine | ONNX-Datei oder PyTorch-Checkpoint |
+| **Deployment-Trigger** | GitHub Actions → Hetzner / CDN | Build-Artefakte, ONNX-Export (→ 7) |
+
+### Verzeichniszuordnung
+
+| Verzeichnis / Datei | Baustein |
+|---|---|
+| `app/main.py` | Practitioner UI |
+| `app/inference.py` | Inference and Heatmap Engine (→ 5.2.1) |
+| `app/preprocessing.py` | Preprocessing Pipeline (→ 5.2.2) |
+| `app/grad_cam.py` | Modell + Grad-CAM (→ 5.2.3) |
+| `models/unet_densenet.py` | Modell + Grad-CAM (→ 5.2.3) |
+| `models/weights/best.pt` | Aktueller Checkpoint |
+| `scripts/train.py` | Außerhalb der Laufzeitarchitektur |
+| `.github/workflows/` | GitHub Actions |
+| `docs/` | GitHub Wiki |
 
 ---
 
 ## 5.2 Detailsicht ausgewählter Bausteine (Level 2)
 
-Die Level-1-Übersicht in Abschnitt 5.1 zeigt das Gesamtsystem mit seinen Hauptbausteinen auf Client-, Server- und Operations-Ebene. In diesem Abschnitt werden drei zentrale Bausteine als Whitebox verfeinert: die Inference and Heatmap Engine, die Preprocessing Pipeline und das Klassifikationsmodell mit Grad-CAM. Gemeinsam bilden diese drei Bausteine den fachlichen Kern des Systems – den vollständigen Pfad vom Bildeingang bis zum Klassifikationsergebnis mit Heatmap.
+Die Level-1-Übersicht in Abschnitt 5.1 zeigt das Gesamtsystem mit seinen Hauptbausteinen auf Client-, Server- und Operations-Ebene. In diesem Abschnitt werden drei zentrale Bausteine als Whitebox verfeinert: die Inference and Heatmap Engine, die Preprocessing Pipeline und das Klassifikationsmodell mit Grad-CAM. Gemeinsam bilden diese drei Bausteine den fachlichen Kern des Systems.
 
 ### 5.2.1 Whitebox: Inference and Heatmap Engine
 
@@ -366,12 +473,9 @@ graph LR
 | # | Teilbaustein | Verantwortung | Interne Arbeitsweise |
 |---|---|---|---|
 | ① | **CornerTextRemover** | Entfernt eingebrannte Scanner-Overlays und Textannotationen aus den vier Bildecken | Heuristisch, kein OCR: Für jede Ecke (quadratischer Bereich, 18 % der kurzen Bildseite) werden die mittlere Helligkeit relativ zum Gesamtbild und der Anteil an Extrempixeln (< 15 oder > 240) berechnet. Überschreiten die Werte konfigurierbare Schwellen, wird die Ecke auf Schwarz gesetzt. |
-| ② | **BrainCrop** | Schneidet das Bild auf den relevanten Gehirnbereich zu | Konvertierung in Grayscale, Schwellwert bei `max × 0.1`, Bounding-Box-Berechnung der hellen Pixel, 4 px Padding. Fallback: Bei komplett dunklem Bild wird das Originalbild unverändert zurückgegeben. |
-| ③ | **Resize** | Skaliert auf die vom Modell erwartete Eingabegröße | Feste Zielgröße 224 × 224 Pixel, passend zum DenseNet121-Standard. |
+| ② | **BrainCrop** | Schneidet das Bild auf den relevanten Gehirnbereich zu | Grayscale-Schwellwert (`max × 0.1`), Bounding-Box-Berechnung der hellen Pixel, 4 px Padding. Fallback: Bei komplett dunklem Bild wird das Originalbild unverändert zurückgegeben. |
+| ③ | **Standardtransformationen** | Resize, ToTensor, Normalize | Resize auf 224 × 224 px (DenseNet121-Standard), Konvertierung PIL → Tensor `[C, H, W]` mit Wertebereich 0–1, Normalisierung mit ImageNet-Statistiken (`mean=[0.485, 0.456, 0.406]`, `std=[0.229, 0.224, 0.225]`). Diese Schritte sind in allen drei Pipeline-Varianten identisch. |
 | ④ | **RandomCornerMask** | *(nur Training)* Schwärzt zufällig 1–2 Ecken | Regularisierung: Verhindert, dass das Modell Shortcut-Features in Bildecken lernt. Ausgelöst mit Wahrscheinlichkeit 25 %, Eckgröße 18 % der kurzen Seite. Hintergrund: → ADR-003. |
-| ⑤ | **RandomHorizontalFlip** | *(nur Training)* Spiegelt das Bild horizontal | Leichte geometrische Augmentation zur Verbesserung der Rotationsinvarianz. |
-| ⑥ | **ToTensor** | Konvertiert PIL-Bild in PyTorch-Tensor | `PIL.Image → torch.Tensor [C, H, W]`, Wertebereich 0–1. |
-| ⑦ | **Normalize** | Normalisiert mit ImageNet-Statistiken | `mean = [0.485, 0.456, 0.406]`, `std = [0.229, 0.224, 0.225]`. Voraussetzung für Transfer Learning mit vortrainierten ImageNet-Gewichten. |
 
 #### Pipeline-Varianten
 
@@ -481,7 +585,11 @@ Die Reihenfolge der Klassen wird nicht fest im Code definiert, sondern zusammen 
 | Grad-CAM | Vereinfachte Berechnung: ONNX Runtime Web unterstützt keine PyTorch-Hooks. Geplant ist entweder eine JavaScript-basierte CAM-Approximation oder ein separates ONNX-Modell, das die Aktivierungskarte als zusätzlichen Output exportiert. | Vollständige Hook-basierte Grad-CAM über `ModelWithHooks`, wie im bestehenden Code implementiert |
 | Modellaustausch | Nutzer erhält das aktuelle Modell automatisch beim Laden der Webseite (CDN / Browser-Cache) | Administrator kann ONNX-Modelle über die API hochladen und in der Server Model Registry registrieren |
 
+---
+
 ## 6. Runtime View
+
+Die folgenden Szenarien zeigen das Laufzeitverhalten der in Kapitel 5 beschriebenen Bausteine für die drei architektonisch relevantesten Abläufe. Die Auswahl orientiert sich an den Betriebsmodi (→ 3.2) und dem Modell-Upload als drittem eigenständigen Interaktionspfad. Jedes Szenario wird durch ein Sequenzdiagramm und einen Begleittext dargestellt, der die fachliche Bedeutung und die architektonischen Besonderheiten des Ablaufs hervorhebt.
 
 ### Scenario 1: Local Classification
 
@@ -495,6 +603,15 @@ sequenceDiagram
   ONNX-->>STLite: Tumor class + heatmap (Grad-CAM)
   STLite-->>Practitioner: Displays result
 ```
+
+#### Beschreibung
+
+Der lokale Klassifikationspfad bildet den primären Nutzungsweg des Systems. Ein Mitglied des medizinischen Fachpersonals lädt über die Benutzeroberfläche ein MRT-Bild hoch. Die gesamte Verarbeitung – von der Vorverarbeitung über den Forward Pass bis zur Heatmap – findet vollständig im Browser statt, ohne dass Daten das Endgerät verlassen.
+
+STLite führt die Streamlit-Anwendung als WASM-Modul aus und delegiert die Inferenz an ONNX Runtime Web. Das Modell liegt als vorexportierte ONNX-Datei vor, die beim ersten Laden der Seite aus einem CDN bezogen und anschließend im Browser gecacht wird. Nach Abschluss der Inferenz werden die vorhergesagte Tumorklasse, die zugehörigen Wahrscheinlichkeiten und eine Heatmap direkt in der Oberfläche gerendert.
+
+**Architektonisch bemerkenswert** ist, dass kein Netzwerkverkehr entsteht. Sensible Patientendaten bleiben vollständig auf dem Gerät des Nutzers. Dieser Ablauf adressiert unmittelbar die Qualitätsziele Datenschutz und Sicherheit (→ 1.2). Gleichzeitig hängt die Inferenzgeschwindigkeit ausschließlich von der lokalen Hardware ab (→ QS-5), da keine serverseitige Rechenleistung zur Verfügung steht. Die Grad-CAM-Visualisierung ist in diesem Modus vereinfacht, weil ONNX Runtime Web keine PyTorch-Hooks unterstützt (→ 5.2.3). Diese Abhängigkeit von der lokalen Hardware ist als Risiko in 
+Abschnitt 11.4 dokumentiert.
 
 ### Scenario 2: Remote Classification
 
@@ -515,6 +632,14 @@ sequenceDiagram
   Streamlit-->>Practitioner: Display result
 ```
 
+#### Beschreibung
+
+Der Remote-Klassifikationspfad setzt die in Abschnitt 4.2 beschriebene E2EE-Strategie in einen konkreten Laufzeitablauf um. Das Sequenzdiagramm zeigt die fünf beteiligten Bausteine und den vollständigen Nachrichtenfluss vom Bildupload bis zur Ergebnisanzeige.
+
+Der Ablauf gliedert sich in drei Phasen: clientseitige Verschlüsselung, serverseitige Verarbeitung (Entschlüsselung → Inferenz via Inference and Heatmap Engine (→ 5.2.1) → Verschlüsselung des Ergebnisses) und Rückgabe an den Client. Zwischen diesen Phasen wird zu keinem Zeitpunkt unverschlüsseltes Material persistiert.
+
+**Architektonisch bemerkenswert** ist die bewusste Statelessness des Servers. Das adressiert die Qualitätsziele Datenschutz und Datenminimierung (→ 1.2, 2.3). Im Unterschied zum lokalen Modus steht hier die vollständige Hook-basierte Grad-CAM zur Verfügung (→ 5.2.3), und die Inferenzgeschwindigkeit ist durch die Serverhardware planbar (→ QS-6). Der Preis dafür ist die Abhängigkeit von einer Netzwerkverbindung und die Notwendigkeit einer vertrauenswürdigen E2EE-Implementierung (→ 11.2).
+
 ### Scenario 3: Model Upload
 
 ```mermaid
@@ -530,39 +655,142 @@ sequenceDiagram
   Server-->>Frontend: Confirmation
 ```
 
+#### Beschreibung
+
+Dieses Szenario beschreibt, wie ein Modellentwickler einen neuen oder aktualisierten Klassifikator in das System einbringt. Es setzt die in Abschnitt 4.3 beschriebene Erweiterungsstrategie in einen konkreten Ablauf um.
+
+Der Modellentwickler lädt über die Benutzeroberfläche ein ONNX-Modell hoch. Das Frontend leitet das Artefakt an den Server weiter, der zunächst eine Kompatibilitätsvalidierung durchführt. Geprüft wird, ob das Modell die erwartete Eingabedimension (1 × 3 × 224 × 224) akzeptiert, die korrekte Anzahl an Ausgabeklassen liefert und ein gültiges ONNX-Format aufweist. Nur bei erfolgreicher Validierung wird das Modell in der Server Model Registry registriert und steht anschließend für Inferenzanfragen zur Verfügung. Der Modellentwickler erhält eine Bestätigung oder eine detaillierte Fehlermeldung.
+
+**Architektonisch bemerkenswert** ist die Trennung zwischen Modellbereitstellung und Modellanwendung. Die Inference and Heatmap Engine (→ 5.2.1) lädt Modelle ausschließlich aus der Registry – sie kennt weder den Entwickler noch den Upload-Prozess. Dadurch bleibt die Inferenzlogik von der Modellverwaltung entkoppelt. Dieses Szenario betrifft ausschließlich den Remote-Modus; im lokalen Modus erhalten Nutzer das aktuelle Modell automatisch beim Laden der Webseite (→ 7, CDN-Verteilung). Der Upload ist nur für authentifizierte Modellentwickler und Administratoren vorgesehen (→ 3.2). Sollte ein inkompatibles Modell die Validierung passieren, wirkt sich 
+das direkt auf die Inferenzqualität aus – dieses Risiko ist in 
+Abschnitt 11.2 (Abhängigkeit vom Modellartefakt) erfasst.
+
 ---
 
 ## 7. Deployment View
 
-### Infrastructure Level 1
+### 7.1 Infrastructure Level 1
+
+Die Zweiteilung der Infrastruktur folgt unmittelbar aus der Strategieentscheidung für zwei getrennte Ausführungsmodi (→ 4.1). Die in Abschnitt 3.2 eingeführten Betriebsmodi werden hier auf konkrete Infrastrukturelemente abgebildet. Beide Pfade teilen sich dieselbe fachliche Inferenzlogik (→ 5.2.1), unterscheiden sich jedoch in Laufzeitumgebung, Modellformat und Netzwerktopologie.
+
+#### Übersichtsdiagramm
 
 ```mermaid
 flowchart TD
-    user_device["User Device"]
-    stlite_local["STLite WASM (Local)"]
-    streamlit_client["Streamlit Client (Remote)"]
-    hetzner_server["Hetzner Server"]
-    onnx_repo["ONNX Model Repo"]
-    gha_runner["GitHub Actions Runner"]
+    subgraph user["Endgerät des Nutzers"]
+        browser["Webbrowser"]
+        stlite["STLite WASM Runtime"]
+        onnx_local["ONNX Runtime Web"]
+        model_cache["model.onnx\n(CDN / Browser-Cache)"]
+    end
 
-    user_device --> stlite_local
-    user_device --> streamlit_client
-    streamlit_client --> hetzner_server
-    hetzner_server --> onnx_repo
-    hetzner_server --> gha_runner
-    gha_runner --> hetzner_server
+    subgraph hetzner["Hetzner Cloud Server"]
+        streamlit_server["Streamlit Server"]
+        e2ee_server["E2EE-Schicht\n(serverseitig)"]
+        engine["Inference and\nHeatmap Engine"]
+        registry["Server Model\nRegistry"]
+        audit["Audit Metadata\nStore"]
+    end
+
+    subgraph ops["Operations"]
+        gha["GitHub Actions\nRunner"]
+        repo["GitHub Repository\n(Source of Truth)"]
+        cdn["CDN / Static\nHosting"]
+    end
+
+    browser -->|"Lokaler Modus\n(kein Netzwerk)"| stlite
+    stlite --> onnx_local
+    onnx_local --> model_cache
+
+    browser -->|"Remote-Modus\n(HTTPS/TLS + E2EE)"| streamlit_server
+    streamlit_server --> e2ee_server
+    e2ee_server --> engine
+    engine --> registry
+    streamlit_server --> audit
+
+    repo -->|"Push / Merge"| gha
+    gha -->|"Deploy Server"| hetzner
+    gha -->|"ONNX-Export\npublizieren"| cdn
+    cdn -->|"model.onnx\nbereitstellen"| model_cache
 ```
 
-**Motivation:**  
-Separation of local inference (privacy, offline) and remote (scalability, model expansion). Server rebuilt after each PR for security/compliance.
+#### Motivation
 
-**Performance Features:**  
-- CI/CD ensures server always up-to-date
-- No persistent decrypted MRIs
-- Scalable server for clinics
+Im **lokalen Modus** findet die gesamte Verarbeitung im Browser statt. Das Endgerät des Nutzers ist die einzige beteiligte Infrastrukturkomponente. Es entsteht kein Netzwerkverkehr, und sensible MRT-Bilder verlassen das Gerät nicht. Das adressiert die Qualitätsziele Datenschutz und Sicherheit (→ 1.2) sowie den Constraint zur Datenminimierung (→ 2.3). Der Preis ist die Abhängigkeit von der lokalen Hardware (→ QS-5, 11.4).
+
+Im **Remote-Modus** übernimmt ein dedizierter Hetzner-Server die Inferenz. Damit wird die Performance planbar und unabhängig vom Endgerät (→ QS-6). Die Verschlüsselungsarchitektur stellt sicher, dass zu keinem Zeitpunkt unverschlüsselte Patientendaten auf dem Server persistiert werden (→ 4.2 für Details zum E2EE-Ablauf).
+
+Die **Operations-Ebene** sorgt dafür, dass beide Modi stets den aktuellen Stand des Hauptbranches widerspiegeln. Nach jedem gemergten Pull Request baut GitHub Actions den Server neu und publiziert ein aktualisiertes ONNX-Modell für den lokalen Modus über das CDN. Jede produktive Änderung ist dadurch auf einen konkreten PR rückführbar (→ 2.3, Auditierbarkeit).
+
+#### Quality and Performance Features
+
+| Feature | Beschreibung | Adressiertes Qualitätsziel |
+|---|---|---|
+| **Kein Netzwerkverkehr im lokalen Modus** | Bild, Modell und Ergebnis bleiben vollständig auf dem Endgerät. | Datenschutz, Sicherheit (→ 1.2) |
+| **Stateless Server** | Der Hetzner-Server speichert weder Eingabebilder noch Ergebnisse. Jede Anfrage ist in sich abgeschlossen. | Datenschutz, Datenminimierung (→ 2.3) |
+| **Automatisiertes Deployment** | GitHub Actions baut nach jedem Merge den Server neu. Kein manueller Deploy-Schritt, keine Konfigurationsdrift. | Open Source, Auditierbarkeit (→ 1.2, 2.3) |
+| **CDN-basierte Modellverteilung** | Das ONNX-Modell für den lokalen Modus wird über ein CDN ausgeliefert und im Browser gecacht. Wiederholte Nutzung erfordert keinen erneuten Download. | Performance, Bedienbarkeit (→ 1.2) |
+| **Planbare Serverleistung** | Der Hetzner-Server bietet feste CPU- und RAM-Ressourcen. Die Inferenzzeit schwankt weniger als auf heterogenen Endgeräten. | Performance (→ QS-6) |
+| **Reproduzierbare Builds** | Jeder Deploy-Stand ist auf einen Git-Commit rückführbar. Bei Problemen kann auf den letzten stabilen Stand zurückgerollt werden. | Auditierbarkeit (→ 2.3) |
+
+#### Mapping von Bausteinen zu Infrastrukturelementen
+
+Die folgende Tabelle zeigt, welche Bausteine aus der Building Block View (→ Kap. 5) auf welchen Infrastrukturelementen ausgeführt werden.
+
+| Baustein (→ Kap. 5) | Lokaler Modus | Remote-Modus |
+|---|---|---|
+| **Practitioner UI** | Webbrowser (STLite rendert Streamlit-UI als WASM) | Webbrowser (Streamlit-Client, serverseitig gerendert) |
+| **Inference and Heatmap Engine** (→ 5.2.1) | Browser: ONNX Runtime Web (WASM-Sandbox) | Hetzner Server: Python-Prozess (PyTorch / ONNX Runtime nativ) |
+| **Preprocessing Pipeline** (→ 5.2.2) | Browser: WASM (identische Transformationslogik) | Hetzner Server: Python (NumPy, PIL, Torchvision) |
+| **Klassifikationsmodell + Grad-CAM** (→ 5.2.3) | Browser: ONNX-Modell, vereinfachte Heatmap | Hetzner Server: PyTorch-Checkpoint, vollständige Hook-basierte Grad-CAM |
+| **E2EE-Schicht** | – (nicht benötigt) | Client: Browser (JS-Verschlüsselung) + Server: Hetzner (temporäre Entschlüsselung) |
+| **Server Model Registry** | – (Modell via CDN/Cache) | Hetzner Server: Dateisystem oder Object Storage |
+| **Audit Metadata Store** | – (keine serverseitige Protokollierung) | Hetzner Server: Strukturiertes Logging (geplant, → 8.6) |
+| **CI/CD Pipeline** | GitHub Actions → CDN (ONNX-Export publizieren) | GitHub Actions → Hetzner (Server neu bauen + deployen) |
+
+#### Deployment-Unterschiede zwischen den Modi
+
+```mermaid
+flowchart LR
+    subgraph lokal["Lokaler Modus"]
+        L_USER["Nutzer öffnet URL"] --> L_CDN["CDN liefert\nSTLite-App +\nmodel.onnx"]
+        L_CDN --> L_BROWSER["Browser führt\nalles lokal aus"]
+        L_BROWSER --> L_RESULT["Ergebnis wird\nim Browser angezeigt"]
+    end
+
+    subgraph remote["Remote-Modus"]
+        R_USER["Nutzer öffnet URL"] --> R_STREAMLIT["Streamlit-Server\nliefert UI"]
+        R_STREAMLIT --> R_UPLOAD["Bild wird\nverschlüsselt\nhochgeladen"]
+        R_UPLOAD --> R_SERVER["Hetzner Server\nentschlüsselt +\ninferiert"]
+        R_SERVER --> R_RESULT["Ergebnis wird\nverschlüsselt\nzurückgegeben"]
+    end
+```
+
+| Aspekt | Lokaler Modus | Remote-Modus |
+|---|---|---|
+| **Benötigte Infrastruktur** | CDN (einmalig), Browser | Hetzner Server (dauerhaft), Browser |
+| **Netzwerkabhängigkeit** | Nur beim ersten Laden (CDN) | Für jede Anfrage (HTTPS) |
+| **Betriebskosten** | Nahezu null (CDN-Hosting) | Serverkosten (Hetzner VM) |
+| **Skalierung** | Unbegrenzt (jeder Browser ist eigenständig) | Abhängig von Serverdimensionierung |
+| **Verfügbarkeit** | Offline-fähig nach erstem Laden | Abhängig von Serververfügbarkeit |
+| **Modellaktualisierung** | Automatisch beim nächsten Seitenaufruf (CDN-Cache) | Admin-Upload über API (→ 6, Scenario 3) |
+| **Grad-CAM-Verhalten** | → 5.2.3, Betriebsmodi-Tabelle | → 5.2.3, Betriebsmodi-Tabelle |
+
+#### Abgrenzung zur Entwicklungsumgebung
+
+Die oben dargestellte Infrastruktur beschreibt die vorgesehene 
+Produktivumgebung. In der Entwicklung wird das System lokal über 
+`streamlit run app/main.py` auf dem Entwicklerrechner ausgeführt 
+(Python 3.10+, Conda-Umgebung, CPU). Training und Datenvorbereitung 
+erfolgen ebenfalls lokal über Skripte in `scripts/`. Eine separate 
+Test- oder Staging-Umgebung ist im aktuellen Projektstand nicht 
+eingerichtet. Für den Prototyp-Charakter des Systems (→ 8.7) ist 
+das vertretbar; bei einer späteren Produktivsetzung sollte eine 
+Staging-Umgebung auf Hetzner eingeführt werden, die den 
+Produktivserver spiegelt und vor jedem Deployment als Validierungsstufe 
+dient.
 
 ---
-
 
 ## 8. Cross-Cutting Concepts
 

@@ -2,6 +2,8 @@ name: Build Arc42 PDF
 
 on:
   push:
+    branches:
+      - main
     paths:
       - "docs/SAA/arc42-doc.md"
       - ".github/workflows/build-arc42-pdf.yml"
@@ -11,7 +13,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-pdf:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,90 +27,160 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install dependencies
+      - name: Create package.json
         run: |
-          npm install marked mermaid puppeteer
-
-      - name: Build HTML and PDF
-        run: |
-          cat > build-pdf.mjs <<'EOF'
-          import fs from 'fs/promises';
-          import path from 'path';
-          import { marked } from 'marked';
-          import puppeteer from 'puppeteer';
-
-          const inputPath = 'docs/SAA/arc42-doc.md';
-          const outputPdf = 'docs/SAA/arc42-doc.pdf';
-
-          const md = await fs.readFile(inputPath, 'utf-8');
-
-          // Simple Mermaid replacement: render diagram blocks into placeholders
-          const mermaidBlocks = [];
-          let index = 0;
-
-          const replaced = md.replace(/```mermaid\s*\n([\s\S]*?)\n```/g, (_, code) => {
-            const id = `mermaid-${index++}`;
-            mermaidBlocks.push({ id, code });
-            return `<div class="mermaid" id="${id}">${code.replace(/</g, '&lt;')}</div>`;
-          });
-
-          const body = marked.parse(replaced);
-
-          const html = `<!doctype html>
-          <html>
-          <head>
-            <meta charset="utf-8" />
-            <title>Arc42 PDF</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 32px; line-height: 1.5; }
-              img { max-width: 100%; }
-              pre { white-space: pre-wrap; }
-              code { font-family: monospace; }
-              h1, h2, h3, h4 { page-break-after: avoid; }
-              .mermaid { margin: 16px 0; }
-            </style>
-            <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-            <script>
-              mermaid.initialize({ startOnLoad: true, theme: 'default' });
-            </script>
-          </head>
-          <body>
-            ${body}
-          </body>
-          </html>`;
-
-          await fs.mkdir(path.dirname(outputPdf), { recursive: true });
-
-          const browser = await puppeteer.launch({
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-          });
-          const page = await browser.newPage();
-          await page.setContent(html, { waitUntil: 'networkidle0' });
-          await page.pdf({
-            path: outputPdf,
-            format: 'A4',
-            printBackground: true,
-            margin: { top: '20mm', right: '15mm', bottom: '20mm', left: '15mm' }
-          });
-          await browser.close();
+          cat > package.json <<'EOF'
+          {
+            "name": "arc42-pdf-builder",
+            "private": true,
+            "type": "module",
+            "dependencies": {
+              "playwright": "^1.52.0"
+            }
+          }
           EOF
 
-          node build-pdf.mjs
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Render GitHub Markdown page to PDF
+        env:
+          GITHUB_OWNER: chempananickal
+          GITHUB_REPO: Tumor_Classifier
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          INPUT_MD: docs/SAA/arc42-doc.md
+          OUTPUT_PDF: docs/SAA/arc42-doc.pdf
+        run: |
+          cat > render-github-markdown-to-pdf.mjs <<'EOF'
+          import fs from "node:fs";
+          import path from "node:path";
+          import { chromium } from "playwright";
+
+          const owner = process.env.GITHUB_OWNER;
+          const repo = process.env.GITHUB_REPO;
+          const ref = process.env.GITHUB_REF_NAME;
+          const inputPath = process.env.INPUT_MD;
+          const outputPdf = process.env.OUTPUT_PDF;
+
+          if (!owner || !repo || !ref || !inputPath || !outputPdf) {
+            throw new Error("Missing required environment variables.");
+          }
+
+          const url = `https://github.com/${owner}/${repo}/blob/${ref}/${inputPath}`;
+
+          fs.mkdirSync(path.dirname(outputPdf), { recursive: true });
+
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({
+            viewport: { width: 1440, height: 2200 }
+          });
+
+          await page.goto(url, { waitUntil: "domcontentloaded", timeout: 120000 });
+
+          await page.waitForSelector("article.markdown-body", { timeout: 120000 });
+
+          await page.waitForFunction(() => {
+            const article = document.querySelector("article.markdown-body");
+            return article && article.innerText.trim().length > 0;
+          }, { timeout: 120000 });
+
+          await page.waitForTimeout(5000);
+
+          await page.addStyleTag({
+            content: `
+              header, footer, nav, aside,
+              .js-header-wrapper,
+              .file-header,
+              .Box-header,
+              .react-blob-header,
+              .Layout-sidebar,
+              .discussion-sidebar,
+              .gh-header-show,
+              .UnderlineNav,
+              .Breadcrumbs,
+              .BlobToolbar,
+              .Box-sc-g0xbh4-0,
+              .prc-PageLayout-VerticalDivider,
+              .prc-PageLayout-Pane,
+              .prc-PageLayout-Content + div {
+                display: none !important;
+              }
+
+              body {
+                background: white !important;
+              }
+
+              main, .application-main, .container-xl, .container-lg, .container-md {
+                max-width: 100% !important;
+                width: 100% !important;
+              }
+
+              article.markdown-body {
+                max-width: 980px !important;
+                margin: 0 auto !important;
+                padding: 32px !important;
+                font-size: 14px !important;
+                line-height: 1.6 !important;
+                background: white !important;
+              }
+            `
+          });
+
+          const article = page.locator("article.markdown-body").first();
+
+          await article.scrollIntoViewIfNeeded();
+
+          await article.evaluate((node) => {
+            node.querySelectorAll("details").forEach((el) => el.setAttribute("open", "open"));
+          });
+
+          await article.pdf({
+            path: outputPdf,
+            format: "A4",
+            printBackground: true,
+            margin: {
+              top: "16mm",
+              right: "12mm",
+              bottom: "16mm",
+              left: "12mm"
+            }
+          });
+
+          await browser.close();
+
+          if (!fs.existsSync(outputPdf)) {
+            throw new Error(`PDF was not created: ${outputPdf}`);
+          }
+
+          const stats = fs.statSync(outputPdf);
+          if (stats.size === 0) {
+            throw new Error(`PDF was created but is empty: ${outputPdf}`);
+          }
+
+          console.log(`Created ${outputPdf} (${stats.size} bytes) from ${url}`);
+          EOF
+
+          node render-github-markdown-to-pdf.mjs
+
+      - name: Verify PDF exists
+        run: |
+          test -f docs/SAA/arc42-doc.pdf || { echo "PDF was not generated."; exit 1; }
+          test -s docs/SAA/arc42-doc.pdf || { echo "PDF is empty."; exit 1; }
 
       - name: Commit PDF if changed
         run: |
-          if [ ! -f docs/SAA/arc42-doc.pdf ]; then
-            echo "PDF was not generated."
-            exit 1
-          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet -- docs/SAA/arc42-doc.pdf; then
+          git add docs/SAA/arc42-doc.pdf
+
+          if git diff --cached --quiet; then
             echo "No PDF changes to commit."
             exit 0
           fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/SAA/arc42-doc.pdf
           git commit -m "Update arc42 PDF"
           git push

@@ -234,6 +234,8 @@ Das entschlüsselte Antwort-Payload enthält:
 
 Fehlerantworten liefern zusätzlich ein unverschlüsseltes Minimal-Envelope mit `request_id`, `status` und `error_code`, solange noch keine entschlüsselbare Sitzung etabliert wurde. Nach erfolgreicher Schlüsselaushandlung werden fachliche Fehler im verschlüsselten Antwort-Payload zurückgegeben.
 
+Damit ist der API-Vertrag bewusst zweistufig: Vor erfolgreicher Schlüsselaushandlung sind nur minimale technische Fehler offen sichtbar; nach erfolgreicher Schlüsselprüfung und Sitzungseinrichtung laufen fachliche Antworten und Fehler ausschließlich innerhalb des verschlüsselten Envelopes.
+
 ##### Abgrenzung des Scopes
 
 *Im Scope:*
@@ -727,6 +729,8 @@ Der Remote-Klassifikationspfad setzt die in Abschnitt 4.2 beschriebene E2EE-Stra
 
 Der Ablauf gliedert sich in vier Phasen: Abruf des signierten Worker-Schlüssels, clientseitige Schlüsselaushandlung und Verschlüsselung, serverseitige Verarbeitung (Entschlüsselung → Inferenz via Inference and Heatmap Engine (→ 5.2.1) → Verschlüsselung des Ergebnisses) und Rückgabe an den Client. Der Edge-Gateway sieht ausschließlich Ciphertext und Routing-Metadaten. Entschlüsseltes Material existiert nur kurzzeitig im Speicher des Inferenz-Workers und wird nicht persistiert.
 
+Konkret prüft der Browser zunächst die Ed25519-Signatur des vom Schlüsselendpunkt gelieferten Worker-Schlüssels gegen den bekannten Vertrauensanker. Erst danach erzeugt er ein ephemeres X25519-Schlüsselpaar, leitet mit dem Worker-Schlüssel einen Sitzungsschlüssel via HKDF-SHA256 ab und verschlüsselt Bild und Metadaten mit AES-256-GCM. Der Gateway verwendet `key_id` ausschließlich zum Routing; die Entschlüsselung findet erst auf dem adressierten Worker statt. Das Antwort-Envelope wird mit demselben Sitzungsschlüssel geschützt und erst im Browser wieder entschlüsselt.
+
 **Architektonisch bemerkenswert** ist die bewusste Statelessness des Servers und die applikationsseitige Ende-zu-Ende-Verschlüsselung bis zum Inferenz-Worker. Das adressiert die Qualitätsziele Datenschutz und Datenminimierung (→ 1.2, 2.3). Im Unterschied zum lokalen Modus steht hier die vollständige Hook-basierte Grad-CAM zur Verfügung (→ 5.2.3), und die Inferenzgeschwindigkeit ist durch die Serverhardware planbar (→ QS-6). Der Preis dafür ist die Abhängigkeit von einer Netzwerkverbindung, einer korrekten Schlüsselrotation und dem Vertrauen in den Worker als kryptographischen Endpunkt (→ 11.2).
 
 ### Szenario 3: Modell-Upload
@@ -861,17 +865,21 @@ Die Produktion bleibt CPU-basiert. Horizontale Skalierung erfolgt zunächst auss
 
 Betrieblich wird zwischen Edge, Worker und Registry getrennt. Der Edge übernimmt TLS-Terminierung, Rate-Limits und Weiterleitung auf Basis von `key_id`, darf jedoch keine Nutzlast entschlüsseln. Der Worker hält die privaten Schlüssel, entschlüsselt ausschließlich im Arbeitsspeicher und verwirft Klartextdaten unmittelbar nach der Antworterstellung.
 
+Zusätzlich werden die zugehörigen öffentlichen Worker-Schlüssel signiert veröffentlicht und mit kurzer Ablaufzeit verteilt. Bei einer Rotation bleibt der vorherige Schlüssel nur für einen kurzen Drain-Zeitraum gültig, damit bereits begonnene Sitzungen sauber abgeschlossen werden können. Der im Browser verwendete Vertrauensanker wird nur über kontrollierte Releases aktualisiert; dadurch bleibt die Trust-Boundary betrieblich eindeutig: Edge und Gateway terminieren Transport und Routing, der Worker ist der erste Entschlüsselungspunkt.
+
 #### Deployment-Unterschiede zwischen den Modi
 
 ```mermaid
 flowchart LR
     subgraph lokal["Lokaler Modus"]
+        direction LR
         L_USER["Nutzer öffnet URL"] --> L_CDN["CDN liefert\nSTLite-App +\nmodel.onnx"]
         L_CDN --> L_BROWSER["Browser führt\nalles lokal aus"]
         L_BROWSER --> L_RESULT["Ergebnis wird\nim Browser angezeigt"]
     end
 
     subgraph remote["Remote-Modus"]
+        direction LR
         R_USER["Nutzer öffnet URL"] --> R_STREAMLIT["Streamlit-Server\nliefert UI"]
         R_STREAMLIT --> R_UPLOAD["Bild wird\nverschlüsselt\nhochgeladen"]
         R_UPLOAD --> R_SERVER["Hetzner Server\nentschlüsselt +\ninferiert"]
@@ -985,18 +993,18 @@ Das Audit-Format ist bewusst knapp gehalten und enthält mindestens `request_id`
 
 ### 8.7 E2EE- und Schlüsselmanagement
 
-Da der Remote-Modus ohne interaktive Nutzerkonten funktionieren soll, wird keine benutzergebundene Anmeldung vorausgesetzt. Stattdessen verwendet die Zielarchitektur applikationsseitige Ende-zu-Ende-Verschlüsselung zwischen Browser und Inferenz-Worker.
+Der Remote-Modus verwendet keine benutzergebundene Anmeldung, sondern applikationsseitige Ende-zu-Ende-Verschlüsselung zwischen Browser und Inferenz-Worker. Dieses Konzept ist querschnittlich relevant, weil es gleichzeitig die öffentlichen HTTP-Schnittstellen (→ 3.2), den Remote-Laufzeitablauf (→ 6, Szenario 2), die Trennung von Edge, Worker und Registry in der Verteilungssicht (→ 7.1) sowie die Architekturentscheidung zur Verschlüsselung ohne Nutzerlogin (→ 9.7) prägt.
 
-Der Ablauf ist wie folgt:
+Für dieses Konzept gelten die folgenden architektonischen Regeln:
 
-1. Der Browser ruft `/.well-known/inference-key` ab.
-2. Der Endpunkt liefert den aktuellen öffentlichen X25519-Schlüssel des Workers zusammen mit einer Ed25519-Signatur und Ablaufzeit.
-3. Der Browser prüft die Signatur gegen einen im Frontend eingebetteten oder über Release-Artefakte gepinnten Vertrauensanker.
-4. Für jede Anfrage erzeugt der Browser ein ephemeres X25519-Schlüsselpaar, leitet mit dem Worker-Schlüssel einen Sitzungsschlüssel via HKDF-SHA256 ab und verschlüsselt Bild und Payload mit AES-256-GCM.
-5. Der Edge sieht nur das verschlüsselte Envelope und leitet anhand von `key_id` an den passenden Worker weiter.
-6. Der Worker entschlüsselt ausschließlich im Arbeitsspeicher, führt die Inferenz aus, verschlüsselt das Ergebnis mit demselben Sitzungsschlüssel und verwirft Klartextdaten anschließend.
+1. Der Browser darf Bilddaten nur verschlüsselt an den Remote-Pfad übergeben; unverschlüsselte Nutzlasten außerhalb des Endgeräts sind nicht Teil der Zielarchitektur.
+2. Öffentliche Worker-Schlüssel werden signiert veröffentlicht und gegen einen Vertrauensanker geprüft; Schlüsselrotation ist ein Betriebsbestandteil und keine optionale Zusatzmaßnahme.
+3. Die vorgeschaltete Infrastruktur, insbesondere Edge und Gateway, sieht nur Ciphertext und Routing-Metadaten; die Entschlüsselung endet explizit erst am Inferenz-Worker.
+4. Sitzungsschlüssel werden pro Anfrage neu abgeleitet; die in 3.2 beschriebenen Envelope-Formate und Felder sind die technische Ausprägung dieses Prinzips.
+5. Entschlüsseltes Material darf nur kurzzeitig im Arbeitsspeicher des Workers existieren und wird nach der Antworterstellung verworfen; dauerhafte Bildpersistenz ist ausgeschlossen.
+6. Der Worker-Host bleibt Teil der Trusted Computing Base. Das Konzept schützt gegen Mitlesen in Transport, Edge und Protokollierung, nicht gegen einen vollständig kompromittierten Worker.
 
-Dieses Design erfüllt den fachlichen Wunsch nach „kein Login, aber verschlüsselte Bilder bis zum Verarbeitungsendpunkt“. Die Ende-zu-Ende-Beziehung endet dabei explizit am Inferenz-Worker, nicht am vorgeschalteten Gateway. Der Worker-Host bleibt Teil der Trusted Computing Base; das Konzept schützt somit gegen Mitlesen in Transport, Edge und Protokollierung, nicht gegen einen vollständig kompromittierten Worker-Host.
+Die konkrete Nachrichtenfolge, die Endpunkte sowie die kryptographischen Felder werden deshalb nicht erneut in diesem Kapitel im Detail spezifiziert, sondern in den jeweils zuständigen Sichten beschrieben: Schnittstellen in 3.2, Laufzeit in Kapitel 6 und betriebliche Konsequenzen in 7.1.
 
 ### 8.8 Fachliche und regulatorische Grenze des Systems
 
@@ -1070,7 +1078,7 @@ Die Laufzeit hängt im lokalen Modus damit stärker von der verfügbaren Hardwar
 
 Für Remote-Inferenz wird keine klassische Benutzeranmeldung vorausgesetzt. Stattdessen setzt die Architektur auf applikationsseitige Verschlüsselung mit ephemeren Sitzungsschlüsseln und signierten Worker-Public-Keys. Diese Entscheidung hält die Einstiegshürde für Anwender niedrig und reduziert zugleich die Sichtbarkeit sensibler Bilddaten für vorgeschaltete Infrastrukturkomponenten.
 
-Die Entscheidung bringt klare technische Konsequenzen mit sich: ein definierter Schlüsselabruf-Endpunkt, Schlüsselrotation je Deployment, verschlüsselte Envelope-Formate sowie eine eindeutige Trust-Boundary am Inferenz-Worker. Misslingt diese Disziplin, ist der Datenschutzgewinn des Remote-Modus nicht erreichbar.
+Die Entscheidung bringt klare technische Konsequenzen mit sich: ein definierter Schlüsselabruf-Endpunkt, Schlüsselrotation je Deployment, verschlüsselte Envelope-Formate sowie eine eindeutige Trust-Boundary am Inferenz-Worker. Die konkrete Ausprägung dieser Konsequenzen ist in den zuständigen Sichten beschrieben: HTTP-Vertrag in 3.2, Laufzeitablauf in Kapitel 6, betriebliche Umsetzung in 7.1 und das querschnittliche Konzept in 8.7. Misslingt diese Disziplin, ist der Datenschutzgewinn des Remote-Modus nicht erreichbar.
 
 ---
 

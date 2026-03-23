@@ -20,8 +20,6 @@ Version: 1.0 (2026-03-18) | Autoren: Rubin Chempananickal James (D876), Sebastia
 - Das Produkt wird als Open Source entwickelt; Dokumentation über ein Wiki, Beiträge erfolgen über Pull Requests, Fehler und Feature-Anfragen werden als GitHub Issues gepflegt.
 - Die Kommunikation erfolgt über eine Mailingliste (Ankündigungen) und eine Slack-Gruppe (Zusammenarbeit).
 
-*Erläuterung:*  
-Die Anforderungen beinhalten sowohl technische als auch organisatorische Aspekte. Ziel ist, eine sichere, transparente und flexible Lösung für die medizinische Bilderkennung bereitzustellen, die auf verschiedenen Ebenen (Entwicklung, Einsatz, Erweiterung) offen gestaltet ist.
 
 ### 1.2 Qualitätsziele
 
@@ -64,8 +62,6 @@ Qualitätsziele sind zentral für medizinische Software. Besonders Genauigkeit, 
 | GitHub als "Single Source of Truth"      | Dokumentation, Pull Requests, Issues und Workflows sind obligatorische Bestandteile.              |
 | Ziel-Hosting: Hetzner                    | Die Infrastruktur nimmt Bezug auf VMs, Netze und Konventionen von Hetzner.                        |
 
-*Erläuterung:*  
-Technische Randbedingungen geben die Leitplanken für Architektur und Implementierung vor. Zu beachten sind insbesondere Schnittstellenstandards, Plattformvorgaben und Prozesse zur Sicherstellung der Verständlichkeit und Wartbarkeit.
 
 ## 2.2 Organisatorische Randbedingungen
 
@@ -75,9 +71,6 @@ Technische Randbedingungen geben die Leitplanken für Architektur und Implementi
 | Beiträge ausschließlich per PR   | Änderungen an der Architektur sollen stets nachvollziehbar und überprüfbar sein. |
 | Fehler und Features via Issues   | Produkt-Backlog und Bug-Tracking erfolgen GitHub-zentriert.           |
 | Getrennte Kommunikation          | Formelle Ankündigungen (Mailingliste) und Alltagskommunikation (Slack).|
-
-*Erläuterung:*
-Organisatorische Constraints fördern Transparenz, Nachvollziehbarkeit und eine offene Mitmachkultur, passend zum Charakter des Projekts als Open-Source-Lösung.
 
 ## 2.3 Regulatorische / fachliche Randbedingungen
 
@@ -284,7 +277,7 @@ Die Lösungsstrategie leitet sich direkt aus den Qualitätszielen (→ 1.2), den
 | **Adressierte Qualitätsziele** | Sicherheit, Datenschutz (→ 1.2: Höchste Priorität) |
 | **Adressierte Constraints** | Verschlüsselte Kommunikation (→ 2.1), Datenminimierung (→ 2.3), keine dauerhafte Speicherung (→ 2.3) |
 | **Begründung** | Im medizinischen Kontext sind MRT-Bilder sensible Patientendaten. Selbst bei einer kompromittierten Netzwerkverbindung oder einem Servereinbruch dürfen keine verwertbaren Bilddaten offenliegen. Die Statelessness des Servers stellt sicher, dass nach Abschluss einer Anfrage kein Datenmaterial persistiert. |
-| **Auswirkung auf Architektur** | Die E2EE-Schicht wird als eigenständiger Baustein zwischen Client-UI und Inference API eingefügt (→ 5.1). Die Inferenzlogik selbst bleibt davon unberührt. Sie erhält in beiden Modi ein entschlüsseltes PIL-Image als Eingabe (→ 5.2.1, Schnittstellen). |
+| **Auswirkung auf Architektur** | Die E2EE-Schicht wird als eigenständiger Baustein zwischen Client-UI und Inference API eingefügt (→ 5.1). Die Inferenzlogik selbst bleibt davon unberührt. Im lokalen Modus verarbeitet sie das Bild direkt aus dem Browserpfad; im Remote-Modus erhält sie dieselbe fachliche Eingabe nach temporärer Entschlüsselung im Worker (→ 5.2.1, Schnittstellen). |
 
 ### 4.3 Modulare Modellerweiterbarkeit über ONNX
 
@@ -300,10 +293,10 @@ Die Lösungsstrategie leitet sich direkt aus den Qualitätszielen (→ 1.2), den
 
 | Aspekt | Details |
 |---|---|
-| **Entscheidung** | Jede Vorhersage wird standardmäßig durch eine Grad-CAM-Heatmap ergänzt. Die Visualisierung ist kein optionales Feature, sondern Bestandteil der regulären Ausgabe. |
+| **Entscheidung** | Jede Vorhersage wird standardmäßig durch eine erklärende Heatmap ergänzt. Im Remote-Modus erfolgt dies als vollständige hook-basierte Grad-CAM, im lokalen Modus als browserkompatible CAM-Approximation. |
 | **Adressierte Qualitätsziele** | Erklärbarkeit (→ 1.2: Hoch), Bedienbarkeit (→ 1.2: Hoch) |
 | **Adressierte Constraints** | Erklärbarkeit muss gewährleistet sein (→ 2.1) |
-| **Begründung** | Medizinisches Fachpersonal ohne ML-Hintergrund muss nachvollziehen können, auf welcher Grundlage das System eine Klasse vorhersagt. Eine reine Wahrscheinlichkeitsangabe reicht dafür nicht aus. Die Heatmap zeigt visuell, welche Bildbereiche die Entscheidung des Modells beeinflusst haben, und schafft damit eine Brücke zwischen Modellergebnis und fachlicher Einordnung. |
+| **Begründung** | Medizinisches Fachpersonal ohne ML-Hintergrund muss nachvollziehen können, auf welcher Grundlage das System eine Klasse vorhersagt. Eine reine Wahrscheinlichkeitsangabe reicht dafür nicht aus. Deshalb gehört in beiden Modi eine visuelle Erklärung zur Standardausgabe, auch wenn ihre technische Erzeugung lokal und remote unterschiedlich ausfällt. |
 | **Auswirkung auf Architektur** | Grad-CAM wird als fester Bestandteil der Inference and Heatmap Engine implementiert, was eine enge Kopplung zwischen Modellstruktur und Visualisierung erzeugt (→ 5.2.3, 8.3, 9.5). |
 
 ### 4.5 Streamlit/STLite als einheitliche Benutzeroberfläche
@@ -510,7 +503,7 @@ graph LR
 
     subgraph Remote ["Remote-Modus · Server"]
         direction LR
-        R_UI["Streamlit Client"] --> R_E2EE["E2EE-Schicht<br/>(clientseitig<br/>verschlüsseln)"]
+        R_UI["Browser-UI"] --> R_E2EE["E2EE-Schicht<br/>(clientseitig<br/>verschlüsseln)"]
         R_E2EE --> R_API["Inference API<br/>(Hetzner)"]
         R_API --> R_ENG["Inference Engine<br/>(PyTorch / ONNX)"]
         R_CKPT["Modell-Registry<br/>(Server)"] --> R_ENG
@@ -686,7 +679,7 @@ Die Reihenfolge der Klassen wird nicht fest im Code definiert, sondern zusammen 
 |---|---|---|
 | Modellformat | ONNX, exportiert für WASM-Kompatibilität | PyTorch-Checkpoint (`.pt`) oder ONNX |
 | Runtime | ONNX Runtime Web (WASM) | PyTorch / ONNX Runtime (nativ, CPU) |
-| Grad-CAM | Vereinfachte Berechnung: ONNX Runtime Web unterstützt keine PyTorch-Hooks. Geplant ist entweder eine JavaScript-basierte CAM-Approximation oder ein separates ONNX-Modell, das die Aktivierungskarte als zusätzlichen Output exportiert. | Vollständige Hook-basierte Grad-CAM über `ModelWithHooks`, wie im bestehenden Code implementiert |
+| Grad-CAM | Browserkompatible CAM-Approximation; nicht hook-basiert, aber als reguläre Explainability-Ausgabe verfügbar. | Vollständige Hook-basierte Grad-CAM über `ModelWithHooks`, wie im bestehenden Code implementiert |
 | Modellaustausch | Nutzer erhält das aktuelle Modell automatisch beim Laden der Webseite (CDN / Browser-Cache) | Administrator kann ONNX-Modelle über die API hochladen und in der Server Model Registry registrieren |
 
 ---
@@ -704,7 +697,7 @@ sequenceDiagram
   participant ONNX
   Practitioner->>STLite: Uploads MRI
   STLite->>ONNX: Runs inference
-  ONNX-->>STLite: Tumor class + heatmap (Grad-CAM)
+    ONNX-->>STLite: Tumor class + heatmap (Grad-CAM approximation)
   STLite-->>Practitioner: Displays result
 ```
 
@@ -712,9 +705,9 @@ sequenceDiagram
 
 Der lokale Klassifikationspfad bildet den primären Nutzungsweg des Systems. Ein Mitglied des medizinischen Fachpersonals lädt über die Benutzeroberfläche ein MRT-Bild hoch. Die gesamte Verarbeitung – von der Vorverarbeitung über den Forward Pass bis zur Heatmap – findet vollständig im Browser statt, ohne dass Daten das Endgerät verlassen.
 
-STLite führt die Streamlit-Anwendung als WASM-Modul aus und delegiert die Inferenz an ONNX Runtime Web. Das Modell liegt als vorexportierte ONNX-Datei vor, die beim ersten Laden der Seite aus einem CDN bezogen und anschließend im Browser gecacht wird. Nach Abschluss der Inferenz werden die vorhergesagte Tumorklasse, die zugehörigen Wahrscheinlichkeiten und eine Heatmap direkt in der Oberfläche gerendert.
+STLite führt die Streamlit-Anwendung als WASM-Modul aus und delegiert die Inferenz an ONNX Runtime Web. Das Modell liegt als vorexportierte ONNX-Datei vor, die beim ersten Laden der Seite aus einem CDN bezogen und anschließend im Browser gecacht wird. Nach Abschluss der Inferenz werden die vorhergesagte Tumorklasse, die zugehörigen Wahrscheinlichkeiten und eine browserkompatible Heatmap direkt in der Oberfläche gerendert.
 
-**Architektonisch bemerkenswert** ist, dass kein Netzwerkverkehr entsteht. Sensible Patientendaten bleiben vollständig auf dem Gerät des Nutzers. Dieser Ablauf adressiert unmittelbar die Qualitätsziele Datenschutz und Sicherheit (→ 1.2). Gleichzeitig hängt die Inferenzgeschwindigkeit ausschließlich von der lokalen Hardware ab (→ QS-5), da keine serverseitige Rechenleistung zur Verfügung steht. Die Grad-CAM-Visualisierung ist in diesem Modus vereinfacht, weil ONNX Runtime Web keine PyTorch-Hooks unterstützt (→ 5.2.3). Diese Abhängigkeit von der lokalen Hardware ist als Risiko in 
+**Architektonisch bemerkenswert** ist, dass kein Netzwerkverkehr entsteht. Sensible Patientendaten bleiben vollständig auf dem Gerät des Nutzers. Dieser Ablauf adressiert unmittelbar die Qualitätsziele Datenschutz und Sicherheit (→ 1.2). Gleichzeitig hängt die Inferenzgeschwindigkeit ausschließlich von der lokalen Hardware ab (→ QS-5), da keine serverseitige Rechenleistung zur Verfügung steht. Die Explainability-Ausgabe wird in diesem Modus als browserkompatible CAM-Approximation erzeugt; die vollständige hook-basierte Grad-CAM bleibt dem Remote-Modus vorbehalten (→ 5.2.3). Diese Abhängigkeit von der lokalen Hardware ist als Risiko in 
 Abschnitt 11.4 dokumentiert.
 
 ### Szenario 2: Remote-Klassifikation
@@ -846,7 +839,7 @@ Die folgende Tabelle zeigt, welche Bausteine aus der Building Block View (→ Ka
 
 | Baustein (→ Kap. 5) | Lokaler Modus | Remote-Modus |
 |---|---|---|
-| **Practitioner UI** | Webbrowser (STLite rendert Streamlit-UI als WASM) | Webbrowser (Streamlit-Client, serverseitig gerendert) |
+| **Practitioner UI** | Webbrowser (STLite rendert Streamlit-UI als WASM) | Webbrowser (UI im Browser; Remote-Anfragen gehen an die Inference API) |
 | **Inference and Heatmap Engine** (→ 5.2.1) | Browser: ONNX Runtime Web (WASM-Sandbox) | Hetzner Server: Python-Prozess (PyTorch / ONNX Runtime nativ) |
 | **Preprocessing Pipeline** (→ 5.2.2) | Browser: WASM (identische Transformationslogik) | Hetzner Server: Python (NumPy, PIL, Torchvision) |
 | **Klassifikationsmodell + Grad-CAM** (→ 5.2.3) | Browser: ONNX-Modell, vereinfachte Heatmap | Hetzner Server: PyTorch-Checkpoint, vollständige Hook-basierte Grad-CAM |
@@ -894,9 +887,9 @@ flowchart LR
 
     subgraph remote["Remote-Modus"]
         direction LR
-        R_USER["Nutzer öffnet URL"] --> R_STREAMLIT["Streamlit-Server\nliefert UI"]
-        R_STREAMLIT --> R_UPLOAD["Bild wird\nverschlüsselt\nhochgeladen"]
-        R_UPLOAD --> R_SERVER["Hetzner Server\nentschlüsselt +\ninferiert"]
+        R_USER["Nutzer öffnet URL"] --> R_BROWSER["Browser-UI\nwird geladen"]
+        R_BROWSER --> R_UPLOAD["Bild wird\nclientseitig\nverschlüsselt"]
+        R_UPLOAD --> R_SERVER["Inference API / Worker\nauf Hetzner\nentschlüsselt + inferiert"]
         R_SERVER --> R_RESULT["Ergebnis wird\nverschlüsselt\nzurückgegeben"]
     end
 ```
@@ -947,7 +940,7 @@ Für die Laufzeit bedeutet das: Bei identischem Eingabebild, identischem Modella
 
 #### Vertrag für Modellartefakte
 
-Jedes registrierbare Modellartefakt besteht aus zwei Teilen: dem eigentlichen Modell (`.onnx` oder `.pt`) und einem Manifest. Das Manifest ist für Validierung und Laufzeit obligatorisch.
+Jedes registrierbare Modellartefakt besteht aus zwei Teilen: dem eigentlichen ONNX-Modell (`.onnx`) und einem Manifest. Das Manifest ist für Validierung und Laufzeit obligatorisch.
 
 | Manifestfeld | Typ | Bedeutung |
 |---|---|---|
@@ -963,7 +956,7 @@ Jedes registrierbare Modellartefakt besteht aus zwei Teilen: dem eigentlichen Mo
 
 Die Validierung prüft mindestens:
 
-1. lesbares ONNX- oder Checkpoint-Format
+1. lesbares ONNX-Format
 2. erwartete Eingabedimension und Datentyp
 3. exakt vier Ausgabelogits
 4. vollständiges und konsistentes Manifest
@@ -974,7 +967,7 @@ Modelle mit `gradcam_support=none` dürfen in der Zielarchitektur nicht als Stan
 
 ### 8.3 Ergebnisdarstellung und Nachvollziehbarkeit
 
-Die Ausgabe des Systems beschränkt sich nicht auf ein Klassenlabel. Die Streamlit-Anwendung zeigt zusätzlich die Konfidenz der Vorhersage, die Wahrscheinlichkeiten aller Klassen und eine Grad-CAM-Heatmap. Damit wird die Inferenz um eine visuelle Erklärungskomponente ergänzt. Fachlich ersetzt dies keine medizinische Interpretation, technisch erhöht es aber die Nachvollziehbarkeit der Modellentscheidung.
+Die Ausgabe des Systems beschränkt sich nicht auf ein Klassenlabel. Die Streamlit-Anwendung zeigt zusätzlich die Konfidenz der Vorhersage, die Wahrscheinlichkeiten aller Klassen und eine erklärende Heatmap. Im Remote-Modus wird diese als vollständige Grad-CAM erzeugt, im lokalen Modus als browserkompatible Approximation der Grad-CAM. Damit wird die Inferenz um eine visuelle Erklärungskomponente ergänzt. Fachlich ersetzt dies keine medizinische Interpretation, technisch erhöht es aber die Nachvollziehbarkeit der Modellentscheidung.
 
 Die Explainability ist damit als querschnittliches Konzept zu verstehen: Sie betrifft sowohl die Inferenzlogik als auch die Präsentationsschicht. Änderungen am Modell oder an der Hook-Position für Grad-CAM wirken sich direkt auf die Ergebnisdarstellung aus und müssen daher gemeinsam betrachtet werden. 
 
@@ -1054,7 +1047,7 @@ Dieses Kapitel hält die wesentlichen Architekturentscheidungen der in den Kapit
 
 ### 9.1 DenseNet121 als Modellbasis
 
-Für die Klassifikation wird DenseNet121 als architektonische Modellbasis verwendet. Der Klassifikationskopf ist auf vier Zielklassen angepasst: Glioma, Meningioma, Pituitary und Negative. Diese Modellwahl passt zur restlichen Architektur, weil sie sowohl die bestehende PyTorch-Inferenz des Prototyps als auch die geplante Grad-CAM-basierte Ergebnisdarstellung unterstützt.
+Für die Klassifikation wird DenseNet121 als architektonische Modellbasis verwendet. Der Klassifikationskopf ist auf die vier fachlichen Klassen `glioma`, `meningioma`, `negative` und `pituitary` angepasst. Diese Modellwahl passt zur restlichen Architektur, weil sie sowohl die bestehende PyTorch-Inferenz des Prototyps als auch die geplante Grad-CAM-basierte Ergebnisdarstellung unterstützt.
 
 Die Entscheidung für DenseNet121 hält die Modellseite bewusst überschaubar. Das System braucht kein experimentelles oder besonders großes Modell, sondern eine belastbare Grundlage, die technisch beherrschbar bleibt und sich für einen späteren ONNX-Export eignet. Ein Wechsel auf einen anderen Backbone wäre grundsätzlich möglich, würde aber nicht nur Training und Inferenz, sondern auch Heatmap-Generierung und Modellschnittstellen betreffen.
 
@@ -1076,9 +1069,9 @@ Der primäre Zugang zum System erfolgt über eine Streamlit-basierte Benutzerobe
 
 Diese Entscheidung passt zum Zweck des Systems. Der Schwerpunkt liegt auf einer direkt nutzbaren Anwendung mit niedriger Eintrittshürde. Der technische Pflegepfad bleibt davon getrennt. Eigene Modelle können weiterhin über technische Verwaltungs- und Buildpfade eingebunden werden, ohne den Standardzugang für medizinisches Fachpersonal zu verkomplizieren.
 
-### 9.5 Grad-CAM ist Teil der Standardausgabe
+### 9.5 Erklärende Heatmap ist Teil der Standardausgabe
 
-Die Ausgabe enthält eine Grad-CAM-Heatmap, die die Entscheidung des Modells visuell einordnet. Die Visualisierung ist ein elementarer Teil des normalen Ergebnisbilds der Anwendung. Dadurch wird die Vorhersage für den Nutzer besser nachvollziehbar.
+Die Ausgabe enthält eine erklärende Heatmap, die die Entscheidung des Modells visuell einordnet. Im Remote-Modus wird sie als vollständige Grad-CAM erzeugt, im lokalen Modus als browserkompatible Approximation. Die Visualisierung ist ein elementarer Teil des normalen Ergebnisbilds der Anwendung. Dadurch wird die Vorhersage für den Nutzer besser nachvollziehbar.
 
 Die Entscheidung hat auch technische Folgen. Die Visualisierung hängt von der Struktur des gewählten Modells ab. Änderungen am Backbone wirken sich deshalb nicht nur auf die Klassifikation, sondern auch auf die Erklärbarkeit der Ausgabe aus.
 

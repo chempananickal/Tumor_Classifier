@@ -1207,9 +1207,11 @@ Für die Architektur folgt daraus kein Verzicht auf Explainability, sondern ein 
 | Confidence | Maß für die Sicherheit einer Vorhersage. |
 | CPU | Prozessor des Systems; im aktuellen Stand Zielumgebung für Training und Inferenz. |
 | DenseNet121 | Verwendete Modellarchitektur zur Klassifikation der MRT-Bilder. |
+| DICOM | Digital Imaging and Communications in Medicine; Standardformat und Kommunikationsstandard für medizinische Bilddaten und zugehörige Metadaten. |
 | E2EE | Ende-zu-Ende-Verschlüsselung, bei der Bilddaten erst am vorgesehenen Verarbeitungsendpunkt entschlüsselt werden. |
 | Ed25519 | Kryptographisches Signaturverfahren, mit dem öffentliche Worker-Schlüssel signiert werden. |
 | Edge | Vorgeschaltete Infrastrukturkomponente, die TLS-Terminierung, Rate-Limits und Routing übernimmt, aber keine Nutzlast entschlüsseln darf. |
+| EHR | Electronic Health Record; elektronisches Patientenaktensystem, dessen Anbindung im Dokument ausdrücklich außerhalb des Scopes der ersten Version liegt. |
 | Gateway | Netzwerkknoten im Remote-Modus, der verschlüsselte Anfragen entgegennimmt und an den passenden Worker weiterleitet. |
 | Grad-CAM | Visualisierungsmethode, die Bildbereiche hervorhebt, welche die Vorhersage des Modells beeinflusst haben. |
 | Heatmap | Grafische Darstellung relevanter Bildbereiche, hier als Ergebnis der Grad-CAM-Auswertung. |
@@ -1225,6 +1227,7 @@ Für die Architektur folgt daraus kein Verzicht auf Explainability, sondern ein 
 | OIDC | OpenID Connect; hier zur Ausstellung kurzlebiger technischer Tokens für Modellvalidierung und -registrierung genutzt. |
 | ONNX | Open Neural Network Exchange. |
 | ONNX Runtime Web | Browserfähige Laufzeitumgebung zur Ausführung von ONNX-Modellen im lokalen Modus. |
+| PACS | Picture Archiving and Communication System; System zur Speicherung, Verwaltung und Bereitstellung medizinischer Bilddaten, dessen Integration im Dokument zunächst außerhalb des Scopes liegt. |
 | Preprocessing | Vorbereitung der Eingabedaten vor der eigentlichen Modellverarbeitung. |
 | Proof of Concept | Technischer Demonstrator, der eine Lösung zeigt, aber nicht als fertiges Produkt ausgelegt ist. |
 | Proof-of-Work | Optionales Nachweisverfahren, das vor einer Anfrage Rechenaufwand verlangt, um Missbrauch zu erschweren. |

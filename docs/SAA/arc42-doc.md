@@ -192,11 +192,11 @@ Die Zielarchitektur verwendet wenige, klar abgegrenzte HTTP-Schnittstellen. Für
 
 | Endpunkt | Methode | Authentisierung | Request | Response | Zweck |
 |---|---|---|---|---|---|
-| `/.well-known/inference-key` | `GET` | keine | leer | `key_id`, `worker_public_key`, `signature`, `expires_at`, `algorithms` | Liefert den aktuell gültigen öffentlichen Schlüssel des Inferenz-Workers für applikationsseitige Ende-zu-Ende-Verschlüsselung |
-| `/v1/inference` | `POST` | keine Nutzeranmeldung; optional Edge-Rate-Limit/Proof-of-Work | Verschlüsseltes Request-Envelope mit Bild und Metadaten | Verschlüsseltes Response-Envelope mit Ergebnis und Heatmap | Führt eine einzelne Remote-Inferenz aus |
-| `/v1/models/current` | `GET` | keine | leer | aktives Modellmanifest | Liefert Metadaten des aktuell freigegebenen Modells für UI, CDN und Diagnose |
-| `/v1/models/validate` | `POST` | kurzlebiger Upload-Token oder GitHub-Actions-OIDC-Token | ONNX-Artefakt + Manifest | Validierungsbericht | Prüft Formate, Shapes, Klassen und Explainability-Fähigkeiten |
-| `/v1/models/register` | `POST` | kurzlebiger Upload-Token oder GitHub-Actions-OIDC-Token | `model_id`, `version`, `sha256`, Manifest | Aktivierungsstatus | Registriert ein bereits validiertes Modell für Staging oder Produktion |
+| `/.well-known/inference-key` | `GET` | keine | leer | `key_id`, `worker_public_key`,<br/>`signature`, `expires_at`, `algorithms` | Liefert den Worker-Key für den E2EE-Sessionaufbau |
+| `/v1/inference` | `POST` | keine Nutzeranmeldung;<br/>optional Edge-Rate-Limit / Proof-of-Work | Verschlüsseltes Request-Envelope<br/>mit Bild und Metadaten | Verschlüsseltes Response-Envelope<br/>mit Ergebnis und Heatmap | Führt eine einzelne Remote-Inferenz aus |
+| `/v1/models/current` | `GET` | keine | leer | aktives Modellmanifest | Liefert das aktive Modellmanifest für UI und Diagnose |
+| `/v1/models/validate` | `POST` | kurzlebiger Upload-Token<br/>oder GitHub-Actions-OIDC-Token | ONNX-Artefakt + Manifest | Validierungsbericht | Validiert Artefakt, Manifest und Explainability |
+| `/v1/models/register` | `POST` | kurzlebiger Upload-Token<br/>oder GitHub-Actions-OIDC-Token | `model_id`, `version`,<br/>`sha256`, Manifest | Aktivierungsstatus | Registriert ein validiertes Modell für Staging oder Produktion |
 
 #### API-Vertrag für Remote-Inferenz
 
@@ -498,12 +498,14 @@ Die folgende Darstellung zeigt, wie derselbe fachliche Baustein in den beiden vo
 ```mermaid
 graph LR
     subgraph Lokal ["Lokaler Modus · Browser"]
+        direction LR
         L_UI["STLite UI<br/>(WASM)"] --> L_ENG["Inference Engine<br/>(ONNX Runtime WASM)"]
         L_ONNX["model.onnx<br/>(CDN / Cache)"] --> L_ENG
         L_ENG --> L_RES["Ergebnis direkt<br/>im Browser anzeigen"]
     end
 
     subgraph Remote ["Remote-Modus · Server"]
+        direction LR
         R_UI["Streamlit Client"] --> R_E2EE["E2EE-Schicht<br/>(clientseitig<br/>verschlüsseln)"]
         R_E2EE --> R_API["Inference API<br/>(Hetzner)"]
         R_API --> R_ENG["Inference Engine<br/>(PyTorch / ONNX)"]
@@ -592,13 +594,14 @@ Dieser Baustein umfasst zwei eng gekoppelte Teilsysteme: das DenseNet121-Klassif
 
 #### DenseNet121 mit Hook-Anbindung
 
-Das Backbone-Modell durchläuft vier Dense Blocks mit dazwischenliegenden Transition Layers. Am Ende des vierten Dense Blocks werden Aktivierungen und Gradienten über Hooks abgefangen, bevor die Feature Maps durch Global Average Pooling und den Klassifikationskopf zu vier Logits verdichtet werden.
+Das Backbone-Modell durchläuft vier Dense Blocks mit dazwischenliegenden Transition Layers. Am Ende des vierten Dense Blocks werden Aktivierungen und Gradienten über Hooks abgefangen, bevor die Feature Maps durch Global Average Pooling und den Klassifikationskopf zu vier Logits verdichtet werden. Die Größenangaben im Diagramm beschreiben dabei jeweils Tensorform oder Merkmalsdimension.
 
 ```mermaid
-graph TD
+graph LR
     INPUT["Tensor<br/>[1, 3, 224, 224]"] --> FEAT["DenseNet121<br/>Features"]
 
     subgraph DenseNet121 ["DenseNet121 Backbone"]
+        direction LR
         FEAT --> DB1["denseblock1"]
         DB1 --> T1["transition1"]
         T1 --> DB2["denseblock2"]
@@ -617,12 +620,19 @@ graph TD
     DB4 -. "Backward Hook" .-> GRAD["Gradienten<br/>[B, C, 7, 7]"]
 ```
 
+Lesart der Größenangaben (CNN Tensor Notation):
+
+- `[1, 3, 224, 224]`: eine einzelne Anfrage, drei RGB-Kanäle, Eingabeauflösung 224 × 224 nach dem Preprocessing.
+- `1024 → 4`: Der Klassifikationskopf reduziert 1024 extrahierte Merkmale auf vier Ausgabeklassen.
+- `[B, C, 7, 7]`: Batchgröße `B`, Kanalzahl `C` und räumliche Auflösung 7 × 7 der letzten Feature-Maps, die für Grad-CAM verwendet werden.
+- `Logits [4]`: vier rohe Ausgabewerte, je einer pro Zielklasse.
+
 #### Grad-CAM-Berechnungsfluss
 
-Nach dem Forward Pass wird gezielt der Score der vorhergesagten Klasse rückpropagiert. Aus den am Hook-Punkt gespeicherten Aktivierungen und Gradienten berechnet Grad-CAM eine gewichtete Aktivierungskarte, die anschließend auf Bildgröße skaliert und mit dem Originalbild überblendet wird.
+Nach dem Forward Pass wird gezielt der Score der vorhergesagten Klasse rückpropagiert. Aus den am Hook-Punkt gespeicherten Aktivierungen und Gradienten berechnet Grad-CAM eine gewichtete Aktivierungskarte, die anschließend auf Bildgröße skaliert und mit dem Originalbild überblendet wird. Die Kürzel `B` und `C` behalten dabei dieselbe Bedeutung wie im vorigen Diagramm: Batchgröße und Kanalzahl.
 
 ```mermaid
-graph TD
+graph LR
     LOGITS["Logits<br/>[4 Klassen]"] --> SELECT["Score der<br/>Zielklasse<br/>auswählen"]
     SELECT --> BACKWARD["backward()<br/>→ Gradienten fließen<br/>zu denseblock4"]
 

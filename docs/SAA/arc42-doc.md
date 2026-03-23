@@ -237,6 +237,7 @@ Damit ist der API-Vertrag bewusst zweistufig: Vor erfolgreicher Schlüsselaushan
 
 *Im Scope:*
 - Benutzeroberfläche für Upload & Ergebnisausgabe
+- Image Klassifikation mit einem oder mehreren Modellen
 - Lokale Inferenz einschließlich Grad-CAM-Visualisierung
 - Remote verschlüsselte Inferenz
 - Modellregistrierung und Kompatibilitätsvalidierung
@@ -244,6 +245,8 @@ Damit ist der API-Vertrag bewusst zweistufig: Vor erfolgreicher Schlüsselaushan
 - Open-Source-Workflows (Beiträge, Dokumentation)
 
 *Außerhalb des Scopes (erste Version):*
+- Advanced Logging mit ValKey/Redis
+- Integration eines Segmenter Modells für automatisches Tumor-Segmentation
 - PACS-Integration, EHR-Anbindung
 - Patientenidentitätsmanagement
 - DICOM-Archivierung

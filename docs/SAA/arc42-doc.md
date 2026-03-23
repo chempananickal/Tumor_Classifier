@@ -1,17 +1,17 @@
 # Tumor Classifier Product Architecture Documentation (arc42 Template)
 
-*Version: 1.0 | Status: Entwurf (2026-03-18) | Autoren: Rubin Chempananickal James (D876), Sebastian Leithoff (D704), Alexander Savkov (D911)
+Version: 1.0 | Status: Entwurf (2026-03-18) | Autoren: Rubin Chempananickal James (D876), Sebastian Leithoff (D704), Alexander Savkov (D911)
 
 ---
 
-## 1. Introduction and Goals
+## 1. Einführung und Ziele
 
-### 1.1 Requirements Overview
+### 1.1 Aufgabenstellung
 
 - Klassifikation von Gehirntumoren in MRT-Aufnahmen, unterstützt dabei sowohl einen vollständig lokalen Modus als auch die Nutzung in einer Client-Server-Architektur.
 - Gesundheitspersonal kann Bilder zur Ferninferenz senden; die Kommunikation ist Ende-zu-Ende verschlüsselt (E2EE), und der Server speichert keine Daten dauerhaft.
-- Die Gesundheitspersonal brauchen keine tiefe ML Kentnisse, um das Tool zu verwenden.
-- Die Gesundheitspersonal brauchen keine Python installation, um Lokal Mode zu benutzen. Mit einem Klick auf einer statischen Webseite soll es auf dem Browser aktiviert werden (a la Photopea).
+- Das Gesundheitspersonal braucht keine tiefen ML-Kenntnisse, um das Tool zu verwenden.
+- Das Gesundheitspersonal braucht keine Python-Installation, um den lokalen Modus zu benutzen. Mit einem Klick auf einer statischen Webseite soll es im Browser aktiviert werden (a la Photopea).
 - Modellentwickler können Klassifikatoren im ONNX-Format über eine API bereitstellen und aktualisieren.
 - Das Produkt wird als Open Source entwickelt; Dokumentation über ein Wiki, Beiträge erfolgen über Pull Requests, Fehler und Feature-Anfragen werden als GitHub Issues gepflegt.
 - Die Kommunikation erfolgt über eine Mailingliste (Ankündigungen) und eine Slack-Gruppe (Zusammenarbeit).
@@ -19,7 +19,7 @@
 *Erläuterung:*  
 Die Anforderungen beinhalten sowohl technische als auch organisatorische Aspekte. Ziel ist, eine sichere, transparente und flexible Lösung für die medizinische Bilderkennung bereitzustellen, die auf verschiedenen Ebenen (Entwicklung, Einsatz, Erweiterung) offen gestaltet ist.
 
-### 1.2 Quality Goals
+### 1.2 Qualitätsziele
 
 | Ziel             | Beschreibung                                                                           | Priorität   |
 |------------------|----------------------------------------------------------------------------------------|-------------|
@@ -35,7 +35,7 @@ Die Anforderungen beinhalten sowohl technische als auch organisatorische Aspekte
 *Erläuterung:* 
 Qualitätsziele sind zentral für medizinische Software. Besonders Genauigkeit, Sicherheit und Datenschutz genießen oberste Priorität, da die Ergebnisse in einem sensiblen Kontext genutzt werden. Die Erklärbarkeit trägt dazu bei, dass Nutzer/innen (ggf. ohne ML-Hintergrund) die Resultate nachvollziehen und vertrauen können.
 
-### 1.3 Stakeholders
+### 1.3 Stakeholder
 
 | Rolle                          | Kontakt              | Erwartungen                                  |
 |---------------------------------|----------------------|-----------------------------------------------|
@@ -46,9 +46,9 @@ Qualitätsziele sind zentral für medizinische Software. Besonders Genauigkeit, 
 
 ---
 
-# 2. Architecture Constraints
+# 2. Randbedingungen
 
-## 2.1 Technical Constraints
+## 2.1 Technische Randbedingungen
 
 | Restriktion                             | Erklärung                                                                                         |
 |------------------------------------------|---------------------------------------------------------------------------------------------------|
@@ -63,7 +63,7 @@ Qualitätsziele sind zentral für medizinische Software. Besonders Genauigkeit, 
 *Erläuterung:*  
 Technische Randbedingungen geben die Leitplanken für Architektur und Implementierung vor. Zu beachten sind insbesondere Schnittstellenstandards, Plattformvorgaben und Prozesse zur Sicherstellung der Verständlichkeit und Wartbarkeit.
 
-## 2.2 Organizational Constraints
+## 2.2 Organisatorische Randbedingungen
 
 | Restriktion                      | Erklärung                                                             |
 |----------------------------------|-----------------------------------------------------------------------|
@@ -75,7 +75,7 @@ Technische Randbedingungen geben die Leitplanken für Architektur und Implementi
 *Erläuterung:*
 Organisatorische Constraints fördern Transparenz, Nachvollziehbarkeit und eine offene Mitmachkultur, passend zum Charakter des Projekts als Open-Source-Lösung.
 
-## 2.3 Regulatory / Domain Constraints
+## 2.3 Regulatorische / fachliche Randbedingungen
 
 | Restriktion                   | Erklärung                                                                                                                |
 |-------------------------------|--------------------------------------------------------------------------------------------------------------------------|
@@ -87,7 +87,7 @@ Organisatorische Constraints fördern Transparenz, Nachvollziehbarkeit und eine 
 *Erläuterung:*
 Regulatorische Rahmenbedingungen sind im medizinischen Bereich verpflichtend zu beachten und stehen häufig über technischen Erwägungen.
 
-## 2.4 Conventions
+## 2.4 Konventionen
 
 | Konvention                                 | Erklärung                                                                                  |
 |---------------------------------------------|--------------------------------------------------------------------------------------------|
@@ -101,9 +101,49 @@ Konsistente Konventionen erleichtern Zusammenarbeit und Wartung sowie Onboarding
 
 ---
 
-## 3. System Scope and Context
+## 3. Kontextabgrenzung
 
-### 3.1 Business Context
+#### Kontextdiagramm
+
+Das folgende Diagramm kombiniert fachliche Nachbarn und die wichtigsten technischen Kommunikationswege auf hoher Ebene.
+
+```mermaid
+flowchart LR
+    med["Medizinisches Personal"]
+    admin["Systemadministrator"]
+    modeldev["ML-Modellentwickler"]
+    oss["Open Source Entwickler"]
+    comms["Slack / Mailing List"]
+    wiki["GitHub Wiki"]
+    issues["GitHub Issues"]
+    actions["GitHub Actions"]
+    hetzner["Hetzner Runtime"]
+
+    subgraph system["Tumor Classifier"]
+        ui["UI + Inferenz (lokal im Browser oder remote)"]
+        api["Remote API / Registry (geplant)"]
+    end
+
+    med -->|"MRT-Bild, Moduswahl Browser lokal oder HTTPS/E2EE"| ui
+    ui -->|"Klasse, Konfidenz, Heatmap"| med
+
+    admin -->|"Konfiguration, Deployments, Modellfreigaben"| api
+    api -->|"Audit-Metadaten, Status"| admin
+
+    modeldev -->|"ONNX-Artefakt, Manifest HTTPS-API mit Token/OIDC"| api
+    api -->|"Validierungsbericht, Registrierungsstatus"| modeldev
+
+    oss -->|"PRs, Issues, Doku-Beiträge"| actions
+    actions -->|"Build, Staging, Release"| hetzner
+    actions -->|"Dokumentations-Updates"| wiki
+    issues -->|"Bug- und Featuremeldungen"| oss
+    comms <-->|"Abstimmung, Ankündigungen"| oss
+
+    api <-->|"Deployment, Betrieb"| hetzner
+    ui -. "Remote-Modus nutzt API; Lokaler Modus bleibt im Browser" .-> api
+```
+
+### 3.1 Fachlicher Kontext
 
 Das System agiert als Vermittler zwischen medizinischem Fachpersonal, Administratoren im Gesundheitswesen, Modellentwicklern und der technischen Infrastruktur, die zur Klassifikation von MRT-Bildern benötigt wird.
 
@@ -124,7 +164,7 @@ Das System agiert als Vermittler zwischen medizinischem Fachpersonal, Administra
 *Ausführlich:*  
 Dieses Mapping erläutert, wie verschiedene Interessenten mit dem System interagieren und verdeutlicht, dass die Software bewusst als Plattform und nicht als reine Einzelanwendung konzipiert ist.
 
-### 3.2 Technical Context
+### 3.2 Technischer Kontext
 
 Das Produkt kann in zwei Betriebsarten genutzt werden:
 
@@ -145,6 +185,54 @@ Das Produkt kann in zwei Betriebsarten genutzt werden:
 | Deployment-Automatisierung | GitHub Actions → Hetzner Deploy-Channel | Idealerweise kurzfristige Zugangsdaten     |
 | Dokumentations-Pflege  | GitHub Wiki Web/Git-Workflow            | Versionierte Dokumentation                 |
 | Kollaboration          | Slack / Mailingliste                    | Außerhalb des Laufzeitpfads                |
+
+#### Öffentliche HTTP-Schnittstellen
+
+Die Zielarchitektur verwendet wenige, klar abgegrenzte HTTP-Schnittstellen. Für Inferenzanfragen ist kein interaktiver Login erforderlich. Stattdessen werden kryptographische Sitzungsschlüssel pro Anfrage ausgehandelt, während Modellverwaltung über kurzlebige technische Tokens abgesichert wird.
+
+| Endpunkt | Methode | Authentisierung | Request | Response | Zweck |
+|---|---|---|---|---|---|
+| `/.well-known/inference-key` | `GET` | keine | leer | `key_id`, `worker_public_key`, `signature`, `expires_at`, `algorithms` | Liefert den aktuell gültigen öffentlichen Schlüssel des Inferenz-Workers für applikationsseitige Ende-zu-Ende-Verschlüsselung |
+| `/v1/inference` | `POST` | keine Nutzeranmeldung; optional Edge-Rate-Limit/Proof-of-Work | Verschlüsseltes Request-Envelope mit Bild und Metadaten | Verschlüsseltes Response-Envelope mit Ergebnis und Heatmap | Führt eine einzelne Remote-Inferenz aus |
+| `/v1/models/current` | `GET` | keine | leer | aktives Modellmanifest | Liefert Metadaten des aktuell freigegebenen Modells für UI, CDN und Diagnose |
+| `/v1/models/validate` | `POST` | kurzlebiger Upload-Token oder GitHub-Actions-OIDC-Token | ONNX-Artefakt + Manifest | Validierungsbericht | Prüft Formate, Shapes, Klassen und Explainability-Fähigkeiten |
+| `/v1/models/register` | `POST` | kurzlebiger Upload-Token oder GitHub-Actions-OIDC-Token | `model_id`, `version`, `sha256`, Manifest | Aktivierungsstatus | Registriert ein bereits validiertes Modell für Staging oder Produktion |
+
+#### API-Vertrag für Remote-Inferenz
+
+Alle Remote-Inferenzanfragen verwenden ein JSON-Envelope mit folgenden Feldern:
+
+| Feld | Typ | Bedeutung |
+|---|---|---|
+| `version` | `string` | Protokollversion, initial `v1` |
+| `request_id` | `string` | Clientseitig erzeugte UUID zur Nachverfolgung |
+| `key_id` | `string` | Kennung des aktuell gültigen Worker-Schlüssels |
+| `client_pub` | `string` | Ephemerer öffentlicher X25519-Schlüssel des Browsers, Base64 |
+| `nonce` | `string` | Nonce für AES-256-GCM, Base64 |
+| `ciphertext` | `string` | Verschlüsseltes Payload, Base64 |
+| `tag` | `string` | GCM-Tag, Base64 |
+| `meta` | `object` | Nicht-sensitive Metadaten wie `image_format`, `requested_model`, `client_version` |
+
+Das entschlüsselte Payload der Inferenz enthält:
+
+| Feld | Typ | Bedeutung |
+|---|---|---|
+| `image_bytes` | `bytes` | Originalbild in PNG oder JPEG |
+| `model_id` | `string?` | Optional gewünschtes Modell; fehlt der Wert, wird das aktive Standardmodell genutzt |
+| `return_heatmap` | `boolean` | Standard `true` |
+
+Das entschlüsselte Antwort-Payload enthält:
+
+| Feld | Typ | Bedeutung |
+|---|---|---|
+| `class` | `string` | Vorhergesagte Klasse |
+| `confidence` | `float` | Wahrscheinlichkeit der Top-Klasse |
+| `probs` | `object` | Klassenname → Wahrscheinlichkeit |
+| `heatmap_png` | `bytes?` | PNG-kodierte Heatmap, optional bei `return_heatmap=false` |
+| `model_version` | `string` | Tatsächlich verwendete Modellversion |
+| `processing_ms` | `integer` | Serverseitige Laufzeit in Millisekunden |
+
+Fehlerantworten liefern zusätzlich ein unverschlüsseltes Minimal-Envelope mit `request_id`, `status` und `error_code`, solange noch keine entschlüsselbare Sitzung etabliert wurde. Nach erfolgreicher Schlüsselaushandlung werden fachliche Fehler im verschlüsselten Antwort-Payload zurückgegeben.
 
 ##### Abgrenzung des Scopes
 
@@ -168,7 +256,7 @@ Die getrennte Betrachtung von inkludierten und ausgeschlossenen Systemteilen ver
 
 ---
 
-## 4. Solution Strategy
+## 4. Lösungsstrategie
 
 Die Lösungsstrategie leitet sich direkt aus den Qualitätszielen (→ 1.2), den Randbedingungen (→ 2) und den Stakeholder-Erwartungen (→ 1.3) ab. Jede der folgenden Strategieentscheidungen adressiert mindestens ein zentrales Qualitätsziel und respektiert dabei die technischen und organisatorischen Constraints. Detaillierte Architekturentscheidungen einschließlich verworfener Alternativen werden in Kapitel 9 behandelt und hier nicht vorweggenommen.
 
@@ -226,11 +314,11 @@ Die Lösungsstrategie leitet sich direkt aus den Qualitätszielen (→ 1.2), den
 
 | Aspekt | Details |
 |---|---|
-| **Entscheidung** | Code- und Architekturänderungen werden ausschließlich über Pull Requests eingebracht. Nach jedem gemergten PR wird der Server über GitHub Actions automatisch neu gebaut und deployt. Fehler und Features werden als GitHub Issues gepflegt, Architekturentscheidungen als ADRs dokumentiert. |
+| **Entscheidung** | Code- und Architekturänderungen werden ausschließlich über Pull Requests eingebracht. Nach jedem gemergten PR baut GitHub Actions die Artefakte neu und deployt automatisch nach Staging. Produktionsdeployments erfolgen über signierte Release-Tags. Fehler und Features werden als GitHub Issues gepflegt, Architekturentscheidungen als ADRs dokumentiert. |
 | **Adressierte Qualitätsziele** | Open Source (→ 1.2: Hoch) |
 | **Adressierte Constraints** | Open Source Governance (→ 2.2), Beiträge per PR (→ 2.2), Fehler/Features via Issues (→ 2.2), GitHub als Single Source of Truth (→ 2.1), Auditierbarkeit (→ 2.3) |
-| **Begründung** | In einem Open-Source-Projekt mit mehreren Stakeholder-Gruppen (→ 1.3) ist Nachvollziehbarkeit entscheidend. Automatisierte Deployments stellen sicher, dass der produktive Server stets dem aktuellen Stand des Hauptbranches entspricht. Manuelle Deployment-Schritte entfallen, und Sicherheitspatches werden zeitnah ausgerollt. |
-| **Auswirkung auf Architektur** | GitHub Actions und der Hetzner-Deploy-Channel werden als Operations-Bausteine in die Architektur aufgenommen (→ 5.1, Ops-Gruppe). Die CI/CD-Pipeline deckt sowohl den Server-Build als auch die Aktualisierung des ONNX-Modells im CDN ab (→ 7, Infrastrukturdiagramm). |
+| **Begründung** | In einem Open-Source-Projekt mit mehreren Stakeholder-Gruppen (→ 1.3) ist Nachvollziehbarkeit entscheidend. Automatisierte Staging-Deployments beschleunigen Feedback, während ein expliziter Release-Schritt vor Produktion Sicherheits- und Qualitätsprüfungen erlaubt. |
+| **Auswirkung auf Architektur** | GitHub Actions und der Hetzner-Deploy-Channel werden als Operations-Bausteine in die Architektur aufgenommen (→ 5.1, Ops-Gruppe). Die CI/CD-Pipeline deckt Server-Build, Staging-Deploy, Produktionspromotion sowie die Aktualisierung des ONNX-Modells im CDN ab (→ 7, Infrastrukturdiagramm). |
 
 ### Strategiematrix
 
@@ -245,9 +333,7 @@ Die Lösungsstrategie leitet sich direkt aus den Qualitätszielen (→ 1.2), den
 
 ---
 
-# 5. Building Block View
-
-# 5. Building Block View
+# 5. Bausteinsicht
 
 ## 5.1 Whitebox Gesamtsystem (Level 1)
 
@@ -323,9 +409,11 @@ architecture-beta
 |---|---|---|
 | **Bildupload** | UI → Lokaler / Remote-Modus | `PIL.Image` (JPG/PNG) |
 | **Verschlüsselter Transfer** | Remote-Modus → Inference API | Byte-Array (HTTPS + E2EE) |
+| **Schlüsselabruf** | Browser → `/.well-known/inference-key` | JSON mit signiertem Worker-Schlüssel |
 | **Inferenzauftrag** | Inference API → Engine | Entschlüsseltes `PIL.Image` |
 | **Inferenzergebnis** | Engine → API / UI | `Dict{class, confidence, probs, heatmap}` |
 | **Modellbereitstellung** | Registry → Engine | ONNX-Datei oder PyTorch-Checkpoint |
+| **Modellmanifest** | Registry → UI / Engine | JSON mit `model_id`, `version`, `classes`, `input_shape`, `gradcam_support`, `sha256` |
 | **Deployment-Trigger** | GitHub Actions → Hetzner / CDN | Build-Artefakte, ONNX-Export (→ 7) |
 
 ### Verzeichniszuordnung
@@ -344,7 +432,7 @@ architecture-beta
 
 ---
 
-## 5.2 Detailsicht ausgewählter Bausteine (Level 2)
+## 5.2 Ebene 2: Detailsicht ausgewählter Bausteine
 
 Die Level-1-Übersicht in Abschnitt 5.1 zeigt das Gesamtsystem mit seinen Hauptbausteinen auf Client-, Server- und Operations-Ebene. In diesem Abschnitt werden drei zentrale Bausteine als Whitebox verfeinert: die Inference and Heatmap Engine, die Preprocessing Pipeline und das Klassifikationsmodell mit Grad-CAM. Gemeinsam bilden diese drei Bausteine den fachlichen Kern des Systems.
 
@@ -558,7 +646,7 @@ graph TD
 
 #### Die vier Zielklassen
 
-Die Reihenfolge der Klassen wird nicht fest im Code definiert, sondern zusammen mit den Modellgewichten im Checkpoint gespeichert und beim Laden dynamisch übernommen (→ 9.3). Dadurch bleibt die Zuordnung zwischen Logit-Index und fachlicher Klasse auch bei Änderungen am Datensatz stabil.
+Die Reihenfolge der Klassen wird nicht fest im Code definiert, sondern zusammen mit den Modellgewichten im Checkpoint gespeichert und beim Laden dynamisch übernommen (→ 9.3). Dadurch bleibt die Zuordnung zwischen Logit-Index und fachlicher Klasse auch bei Änderungen am Datensatz stabil. Die folgende Tabelle zeigt daher die Klassenreihenfolge eines aktuellen Modellartefakts exemplarisch, nicht eine unveränderliche Festverdrahtung der Architektur.
 
 | Index | Klasse | Fachliche Beschreibung |
 |---|---|---|
@@ -587,11 +675,11 @@ Die Reihenfolge der Klassen wird nicht fest im Code definiert, sondern zusammen 
 
 ---
 
-## 6. Runtime View
+## 6. Laufzeitsicht
 
 Die folgenden Szenarien zeigen das Laufzeitverhalten der in Kapitel 5 beschriebenen Bausteine für die drei architektonisch relevantesten Abläufe. Die Auswahl orientiert sich an den Betriebsmodi (→ 3.2) und dem Modell-Upload als drittem eigenständigen Interaktionspfad. Jedes Szenario wird durch ein Sequenzdiagramm und einen Begleittext dargestellt, der die fachliche Bedeutung und die architektonischen Besonderheiten des Ablaufs hervorhebt.
 
-### Scenario 1: Local Classification
+### Szenario 1: Lokale Klassifikation
 
 ```mermaid
 sequenceDiagram
@@ -613,34 +701,35 @@ STLite führt die Streamlit-Anwendung als WASM-Modul aus und delegiert die Infer
 **Architektonisch bemerkenswert** ist, dass kein Netzwerkverkehr entsteht. Sensible Patientendaten bleiben vollständig auf dem Gerät des Nutzers. Dieser Ablauf adressiert unmittelbar die Qualitätsziele Datenschutz und Sicherheit (→ 1.2). Gleichzeitig hängt die Inferenzgeschwindigkeit ausschließlich von der lokalen Hardware ab (→ QS-5), da keine serverseitige Rechenleistung zur Verfügung steht. Die Grad-CAM-Visualisierung ist in diesem Modus vereinfacht, weil ONNX Runtime Web keine PyTorch-Hooks unterstützt (→ 5.2.3). Diese Abhängigkeit von der lokalen Hardware ist als Risiko in 
 Abschnitt 11.4 dokumentiert.
 
-### Scenario 2: Remote Classification
+### Szenario 2: Remote-Klassifikation
 
 ```mermaid
 sequenceDiagram
   participant Practitioner
-  participant Streamlit
-  participant E2EE
-  participant Server
-  participant ONNX
-  Practitioner->>Streamlit: Uploads MRI
-  Streamlit->>E2EE: Encrypts image
-  E2EE->>Server: Secure transfer
-  Server->>ONNX: Decrypts + infers (no data persists)
-  ONNX-->>Server: Tumor class + heatmap
-  Server->>E2EE: Encrypts result
-  E2EE->>Streamlit: Secure return
-  Streamlit-->>Practitioner: Display result
+    participant Browser
+    participant KeyEndpoint
+    participant Gateway
+    participant Worker
+    Practitioner->>Browser: Uploads MRI
+    Browser->>KeyEndpoint: GET /.well-known/inference-key
+    KeyEndpoint-->>Browser: Signed worker public key
+    Browser->>Gateway: POST /v1/inference (encrypted envelope)
+    Gateway->>Worker: Route opaque ciphertext by key_id
+    Worker->>Worker: Decrypt in memory + infer + re-encrypt
+    Worker-->>Gateway: Encrypted result envelope
+    Gateway-->>Browser: Secure return
+    Browser-->>Practitioner: Display result
 ```
 
 #### Beschreibung
 
-Der Remote-Klassifikationspfad setzt die in Abschnitt 4.2 beschriebene E2EE-Strategie in einen konkreten Laufzeitablauf um. Das Sequenzdiagramm zeigt die fünf beteiligten Bausteine und den vollständigen Nachrichtenfluss vom Bildupload bis zur Ergebnisanzeige.
+Der Remote-Klassifikationspfad setzt die in Abschnitt 4.2 beschriebene E2EE-Strategie in einen konkreten Laufzeitablauf um. Das Sequenzdiagramm zeigt den vollständigen Nachrichtenfluss vom Bildupload bis zur Ergebnisanzeige. Für Inferenz ist kein Nutzerkonto erforderlich.
 
-Der Ablauf gliedert sich in drei Phasen: clientseitige Verschlüsselung, serverseitige Verarbeitung (Entschlüsselung → Inferenz via Inference and Heatmap Engine (→ 5.2.1) → Verschlüsselung des Ergebnisses) und Rückgabe an den Client. Zwischen diesen Phasen wird zu keinem Zeitpunkt unverschlüsseltes Material persistiert.
+Der Ablauf gliedert sich in vier Phasen: Abruf des signierten Worker-Schlüssels, clientseitige Schlüsselaushandlung und Verschlüsselung, serverseitige Verarbeitung (Entschlüsselung → Inferenz via Inference and Heatmap Engine (→ 5.2.1) → Verschlüsselung des Ergebnisses) und Rückgabe an den Client. Der Edge-Gateway sieht ausschließlich Ciphertext und Routing-Metadaten. Entschlüsseltes Material existiert nur kurzzeitig im Speicher des Inferenz-Workers und wird nicht persistiert.
 
-**Architektonisch bemerkenswert** ist die bewusste Statelessness des Servers. Das adressiert die Qualitätsziele Datenschutz und Datenminimierung (→ 1.2, 2.3). Im Unterschied zum lokalen Modus steht hier die vollständige Hook-basierte Grad-CAM zur Verfügung (→ 5.2.3), und die Inferenzgeschwindigkeit ist durch die Serverhardware planbar (→ QS-6). Der Preis dafür ist die Abhängigkeit von einer Netzwerkverbindung und die Notwendigkeit einer vertrauenswürdigen E2EE-Implementierung (→ 11.2).
+**Architektonisch bemerkenswert** ist die bewusste Statelessness des Servers und die applikationsseitige Ende-zu-Ende-Verschlüsselung bis zum Inferenz-Worker. Das adressiert die Qualitätsziele Datenschutz und Datenminimierung (→ 1.2, 2.3). Im Unterschied zum lokalen Modus steht hier die vollständige Hook-basierte Grad-CAM zur Verfügung (→ 5.2.3), und die Inferenzgeschwindigkeit ist durch die Serverhardware planbar (→ QS-6). Der Preis dafür ist die Abhängigkeit von einer Netzwerkverbindung, einer korrekten Schlüsselrotation und dem Vertrauen in den Worker als kryptographischen Endpunkt (→ 11.2).
 
-### Scenario 3: Model Upload
+### Szenario 3: Modell-Upload
 
 ```mermaid
 sequenceDiagram
@@ -659,7 +748,7 @@ sequenceDiagram
 
 Dieses Szenario beschreibt, wie ein Modellentwickler einen neuen oder aktualisierten Klassifikator in das System einbringt. Es setzt die in Abschnitt 4.3 beschriebene Erweiterungsstrategie in einen konkreten Ablauf um.
 
-Der Modellentwickler lädt über die Benutzeroberfläche ein ONNX-Modell hoch. Das Frontend leitet das Artefakt an den Server weiter, der zunächst eine Kompatibilitätsvalidierung durchführt. Geprüft wird, ob das Modell die erwartete Eingabedimension (1 × 3 × 224 × 224) akzeptiert, die korrekte Anzahl an Ausgabeklassen liefert und ein gültiges ONNX-Format aufweist. Nur bei erfolgreicher Validierung wird das Modell in der Server Model Registry registriert und steht anschließend für Inferenzanfragen zur Verfügung. Der Modellentwickler erhält eine Bestätigung oder eine detaillierte Fehlermeldung.
+Der Modellentwickler lädt über eine technische Verwaltungsoberfläche oder über GitHub Actions ein ONNX-Modell hoch. Für diesen Pfad wird kein interaktiver Benutzerlogin vorausgesetzt; stattdessen wird ein kurzlebiger Upload-Token oder ein OIDC-Token aus GitHub Actions verwendet. Das Frontend oder die CI-Pipeline leitet Artefakt und Manifest an den Server weiter, der zunächst eine Kompatibilitätsvalidierung durchführt. Geprüft wird, ob das Modell die erwartete Eingabedimension (1 × 3 × 224 × 224) akzeptiert, die korrekte Anzahl an Ausgabeklassen liefert, ein gültiges ONNX-Format aufweist und ein vollständiges Manifest mitliefert. Nur bei erfolgreicher Validierung wird das Modell in der Server Model Registry registriert und steht anschließend für Inferenzanfragen zur Verfügung. Der Modellentwickler erhält eine Bestätigung oder eine detaillierte Fehlermeldung.
 
 **Architektonisch bemerkenswert** ist die Trennung zwischen Modellbereitstellung und Modellanwendung. Die Inference and Heatmap Engine (→ 5.2.1) lädt Modelle ausschließlich aus der Registry – sie kennt weder den Entwickler noch den Upload-Prozess. Dadurch bleibt die Inferenzlogik von der Modellverwaltung entkoppelt. Dieses Szenario betrifft ausschließlich den Remote-Modus; im lokalen Modus erhalten Nutzer das aktuelle Modell automatisch beim Laden der Webseite (→ 7, CDN-Verteilung). Der Upload ist nur für authentifizierte Modellentwickler und Administratoren vorgesehen (→ 3.2). Sollte ein inkompatibles Modell die Validierung passieren, wirkt sich 
 das direkt auf die Inferenzqualität aus – dieses Risiko ist in 
@@ -667,9 +756,9 @@ Abschnitt 11.2 (Abhängigkeit vom Modellartefakt) erfasst.
 
 ---
 
-## 7. Deployment View
+## 7. Verteilungssicht
 
-### 7.1 Infrastructure Level 1
+### 7.1 Infrastruktur Ebene 1
 
 Die Zweiteilung der Infrastruktur folgt unmittelbar aus der Strategieentscheidung für zwei getrennte Ausführungsmodi (→ 4.1). Die in Abschnitt 3.2 eingeführten Betriebsmodi werden hier auf konkrete Infrastrukturelemente abgebildet. Beide Pfade teilen sich dieselbe fachliche Inferenzlogik (→ 5.2.1), unterscheiden sich jedoch in Laufzeitumgebung, Modellformat und Netzwerktopologie.
 
@@ -720,7 +809,7 @@ Im **lokalen Modus** findet die gesamte Verarbeitung im Browser statt. Das Endge
 
 Im **Remote-Modus** übernimmt ein dedizierter Hetzner-Server die Inferenz. Damit wird die Performance planbar und unabhängig vom Endgerät (→ QS-6). Die Verschlüsselungsarchitektur stellt sicher, dass zu keinem Zeitpunkt unverschlüsselte Patientendaten auf dem Server persistiert werden (→ 4.2 für Details zum E2EE-Ablauf).
 
-Die **Operations-Ebene** sorgt dafür, dass beide Modi stets den aktuellen Stand des Hauptbranches widerspiegeln. Nach jedem gemergten Pull Request baut GitHub Actions den Server neu und publiziert ein aktualisiertes ONNX-Modell für den lokalen Modus über das CDN. Jede produktive Änderung ist dadurch auf einen konkreten PR rückführbar (→ 2.3, Auditierbarkeit).
+Die **Operations-Ebene** sorgt dafür, dass beide Modi kontrolliert aktualisiert werden. Nach jedem gemergten Pull Request baut GitHub Actions die Artefakte neu, deployt nach Staging und publiziert bei erfolgreicher Freigabe ein aktualisiertes ONNX-Modell für den lokalen Modus über das CDN. Produktionsdeployments erfolgen erst nach Release-Promotion. Jede produktive Änderung ist dadurch auf einen konkreten PR und Release-Tag rückführbar (→ 2.3, Auditierbarkeit).
 
 #### Quality and Performance Features
 
@@ -728,7 +817,7 @@ Die **Operations-Ebene** sorgt dafür, dass beide Modi stets den aktuellen Stand
 |---|---|---|
 | **Kein Netzwerkverkehr im lokalen Modus** | Bild, Modell und Ergebnis bleiben vollständig auf dem Endgerät. | Datenschutz, Sicherheit (→ 1.2) |
 | **Stateless Server** | Der Hetzner-Server speichert weder Eingabebilder noch Ergebnisse. Jede Anfrage ist in sich abgeschlossen. | Datenschutz, Datenminimierung (→ 2.3) |
-| **Automatisiertes Deployment** | GitHub Actions baut nach jedem Merge den Server neu. Kein manueller Deploy-Schritt, keine Konfigurationsdrift. | Open Source, Auditierbarkeit (→ 1.2, 2.3) |
+| **Automatisiertes Deployment** | GitHub Actions baut nach jedem Merge neu, deployt automatisch nach Staging und erlaubt reproduzierbare Produktionspromotion per Release-Tag. | Open Source, Auditierbarkeit (→ 1.2, 2.3) |
 | **CDN-basierte Modellverteilung** | Das ONNX-Modell für den lokalen Modus wird über ein CDN ausgeliefert und im Browser gecacht. Wiederholte Nutzung erfordert keinen erneuten Download. | Performance, Bedienbarkeit (→ 1.2) |
 | **Planbare Serverleistung** | Der Hetzner-Server bietet feste CPU- und RAM-Ressourcen. Die Inferenzzeit schwankt weniger als auf heterogenen Endgeräten. | Performance (→ QS-6) |
 | **Reproduzierbare Builds** | Jeder Deploy-Stand ist auf einen Git-Commit rückführbar. Bei Problemen kann auf den letzten stabilen Stand zurückgerollt werden. | Auditierbarkeit (→ 2.3) |
@@ -747,6 +836,30 @@ Die folgende Tabelle zeigt, welche Bausteine aus der Building Block View (→ Ka
 | **Server Model Registry** | – (Modell via CDN/Cache) | Hetzner Server: Dateisystem oder Object Storage |
 | **Audit Metadata Store** | – (keine serverseitige Protokollierung) | Hetzner Server: Strukturiertes Logging (geplant, → 8.6) |
 | **CI/CD Pipeline** | GitHub Actions → CDN (ONNX-Export publizieren) | GitHub Actions → Hetzner (Server neu bauen + deployen) |
+
+#### Umgebungen und Dimensionierung
+
+| Umgebung | Zweck | Infrastruktur | Dimensionierung |
+|---|---|---|---|
+| Entwicklung | Lokale Entwicklung und Debugging | Entwicklerrechner, Conda-Umgebung, Streamlit | CPU-basiert, keine Hochverfügbarkeit |
+| Staging | Integrations- und Smoke-Tests nach jedem Merge | 1 Hetzner VM für API/Worker, 1 verschlüsseltes Datenvolume, CDN-Testpfad | 4 vCPU, 8 GB RAM, 80 GB Volume |
+| Produktion | Nutzerbetrieb im Remote-Modus | 1 Hetzner Load Balancer, 2 Worker/API-VMs, 1 Registry/Audit-VM, CDN | Worker je 8 vCPU, 16 GB RAM; Registry/Audit 4 vCPU, 8 GB RAM; verschlüsselte Volumes |
+
+Die Produktion bleibt CPU-basiert. Horizontale Skalierung erfolgt zunächst ausschließlich über zusätzliche Worker/API-Instanzen hinter dem Load Balancer. Registry und Audit Store werden getrennt gehalten, damit Modellverwaltung und Inferenzlast sich nicht gegenseitig beeinflussen.
+
+#### Rollout, Secrets und Betrieb
+
+| Thema | Zielzustand |
+|---|---|
+| Build | GitHub Actions baut Container/Artefakte nach jedem Merge |
+| Staging-Deploy | Automatisch nach erfolgreichem Build und Smoke-Test |
+| Produktions-Deploy | Manuelle Promotion über signierten Release-Tag |
+| Rollback | Re-Deploy des letzten signierten Releases; Modelle bleiben versioniert und separat rücksetzbar |
+| Secrets | Repository- und Deploy-Secrets nur in GitHub Actions und auf den Zielhosts; keine Secrets im Client-Bundle |
+| Worker-Schlüssel | Rotierbarer X25519-Privatschlüssel pro Deployment, nur auf Worker-Hosts vorhanden |
+| Audit-Daten | Strukturierte Metadaten, keine Bildpersistenz |
+
+Betrieblich wird zwischen Edge, Worker und Registry getrennt. Der Edge übernimmt TLS-Terminierung, Rate-Limits und Weiterleitung auf Basis von `key_id`, darf jedoch keine Nutzlast entschlüsseln. Der Worker hält die privaten Schlüssel, entschlüsselt ausschließlich im Arbeitsspeicher und verwirft Klartextdaten unmittelbar nach der Antworterstellung.
 
 #### Deployment-Unterschiede zwischen den Modi
 
@@ -784,7 +897,7 @@ Produktivumgebung. In der Entwicklung wird das System lokal über
 (Python 3.10+, Conda-Umgebung, CPU). Training und Datenvorbereitung 
 erfolgen ebenfalls lokal über Skripte in `scripts/`. Eine separate 
 Test- oder Staging-Umgebung ist im aktuellen Projektstand nicht 
-eingerichtet. Für den Prototyp-Charakter des Systems (→ 8.7) ist 
+eingerichtet. Für den Prototyp-Charakter des Systems (→ 8.8) ist 
 das vertretbar; bei einer späteren Produktivsetzung sollte eine 
 Staging-Umgebung auf Hetzner eingeführt werden, die den 
 Produktivserver spiegelt und vor jedem Deployment als Validierungsstufe 
@@ -792,9 +905,9 @@ dient.
 
 ---
 
-## 8. Cross-Cutting Concepts
+## 8. Querschnittliche Konzepte
 
-Die in diesem Kapitel beschriebenen Konzepte wirken über mehrere Bausteine hinweg. Sie betreffen nicht nur einzelne Klassen oder Module, sondern prägen den Aufbau der Inferenz, die Nutzung der Oberfläche sowie den Umgang mit Modellartefakten und Laufzeitverhalten.
+Die in diesem Kapitel beschriebenen Konzepte wirken über mehrere Bausteine hinweg. Sie betreffen nicht nur einzelne Klassen oder Module, sondern prägen die Zielarchitektur für lokale und Remote-Inferenz, die Nutzung der Oberfläche sowie den Umgang mit Modellartefakten und Betriebsaspekten. Wo sich der aktuelle Prototyp davon noch unterscheidet, wird dies explizit als Implementierungsstand kenntlich gemacht.
 
 ### 8.1 Datenaufbereitung und Transformationspipeline
 
@@ -804,9 +917,38 @@ Architektonisch ist diese Trennung relevant, weil das System die Klassifikation 
 
 ### 8.2 Modellbereitstellung und Inferenz
 
-Die Anwendung verwendet für die produktive Inferenz einen gespeicherten Checkpoint unter `models/weights/best.pt`. Im Inferenzpfad wird das Modell geladen, in den Evaluierungsmodus gesetzt und anschließend ohne Gradientenberechnung ausgeführt. Die Vorhersage besteht aus Klassenlabel, Konfidenz und Wahrscheinlichkeitsverteilung über alle vier Klassen. Im Checkpoint kann zusätzlich die tatsächliche Klassenreihenfolge abgelegt werden, damit das Mapping zwischen Modelloutput und fachlicher Klasse stabil bleibt. Dies ist relevant, da im Repository selbst ein früheres Problem mit fehlerhafter Klassenreihenfolge dokumentiert ist.
+Die Zielarchitektur trennt zwischen fachlicher Inferenzlogik und konkretem Modellartefakt. Im lokalen Modus wird ein für ONNX Runtime Web geeignetes Modellartefakt über CDN und Browser-Cache bereitgestellt. Im Remote-Modus lädt die Inference and Heatmap Engine ihr Artefakt aus einer Server Model Registry. Beide Pfade folgen derselben fachlichen Verantwortung: Bild vorverarbeiten, Modell ausführen, Klassenwahrscheinlichkeiten berechnen und ein strukturiertes Ergebnis erzeugen.
 
-Für die Laufzeit bedeutet das: Bei identischem Eingabebild, unverändertem Checkpoint und gleicher Ausführungsumgebung ist die Vorhersage deterministisch. Diese Eigenschaft ist für die Testbarkeit und die Fehlersuche wichtig, da Ergebnisse reproduzierbar geprüft werden können. Ergänzend wird bereits bei der Datensatzvorbereitung ein fester Seed verwendet, sodass auch die Aufteilung in Train-, Validierungs- und Testdaten reproduzierbar bleibt.
+Unabhängig vom Artefaktformat bleibt die semantische Kopplung zwischen Modelloutput und fachlichen Klassen erhalten. Deshalb wird die Klassenreihenfolge zusammen mit dem Modellzustand oder einem äquivalenten Metadatensatz gespeichert und beim Laden übernommen. Das verhindert stille Fehler bei der Interpretation der Logits und stützt die in den Kapiteln 4 bis 6 beschriebene Austauschbarkeit von Modellen.
+
+Für die Laufzeit bedeutet das: Bei identischem Eingabebild, identischem Modellartefakt und gleicher Ausführungsumgebung ist die Vorhersage deterministisch. Diese Eigenschaft ist für Testbarkeit, Fehlersuche und Auditierbarkeit wichtig. Der aktuelle Prototyp realisiert hiervon bislang den PyTorch-basierten Pfad mit `models/weights/best.pt`; die Dokumentation beschreibt darüber hinaus die vorgesehene Erweiterung auf ONNX- und Registry-basierte Bereitstellung.
+
+#### Vertrag für Modellartefakte
+
+Jedes registrierbare Modellartefakt besteht aus zwei Teilen: dem eigentlichen Modell (`.onnx` oder `.pt`) und einem Manifest. Das Manifest ist für Validierung und Laufzeit obligatorisch.
+
+| Manifestfeld | Typ | Bedeutung |
+|---|---|---|
+| `model_id` | `string` | Stabiler technischer Name, z. B. `tumor-densenet121` |
+| `version` | `string` | Semantische Version, z. B. `1.3.0` |
+| `classes` | `string[]` | Exakte Reihenfolge der Ausgabeklassen |
+| `input_shape` | `int[]` | Erwartet `[1, 3, 224, 224]` |
+| `input_dtype` | `string` | Erwartet `float32` |
+| `preprocessing_profile` | `string` | Referenz auf die passende Transformationspipeline |
+| `gradcam_support` | `string` | `full`, `approx`, `none` |
+| `sha256` | `string` | Digest des Artefakts |
+| `created_at` | `string` | ISO-8601-Zeitstempel |
+
+Die Validierung prüft mindestens:
+
+1. lesbares ONNX- oder Checkpoint-Format
+2. erwartete Eingabedimension und Datentyp
+3. exakt vier Ausgabelogits
+4. vollständiges und konsistentes Manifest
+5. konsistente Klassenreihenfolge zwischen Manifest und Artefakt
+6. Explainability-Fähigkeit gemäß `gradcam_support`
+
+Modelle mit `gradcam_support=none` dürfen in der Zielarchitektur nicht als Standardmodell freigeschaltet werden, da Erklärbarkeit ein Produktbestandteil ist. Sie dürfen höchstens zu Testzwecken in Staging aktiviert werden.
 
 ### 8.3 Ergebnisdarstellung und Nachvollziehbarkeit
 
@@ -816,43 +958,89 @@ Die Explainability ist damit als querschnittliches Konzept zu verstehen: Sie bet
 
 ### 8.4 Bedienung und Nutzungsarten
 
-Die Standardnutzung erfolgt über eine Streamlit-Oberfläche mit Dateiupload für MRT-Bilder. Nach dem Upload werden Bild, Vorhersage und Heatmap unmittelbar angezeigt. Für den normalen Einsatz des vorhandenen Modells ist damit keine Arbeit auf Codeebene notwendig. Diese Form der Bedienung unterstützt den Charakter des Systems als lokal ausführbarer Demonstrator mit niedriger Einstiegshürde.
+Die Zielarchitektur unterscheidet zwei Nutzungsarten für medizinisches Fachpersonal. Im lokalen Modus erfolgt Upload, Inferenz und Ergebnisdarstellung vollständig im Browser. Im Remote-Modus bleibt die Bedienung aus Nutzersicht ähnlich, der Inferenzpfad wird jedoch um Verschlüsselung, API-Aufruf und serverseitige Verarbeitung ergänzt. In beiden Fällen ist der Anspruch, dass für die Standardnutzung keine Arbeit auf Codeebene notwendig ist.
 
-Davon zu trennen ist die erweiterte Nutzung. Das Training eines eigenen Modells, die Vorbereitung des Datensatzes oder der Austausch von Gewichten erfolgen nicht über die Oberfläche, sondern über Skripte und die Kommandozeile. Für die Dokumentation ist diese Trennung wichtig, weil Bedienbarkeit im Standardfall gegeben ist, erweiterte Nutzung aber weiterhin technisches Vorwissen voraussetzt.
+Davon getrennt ist die erweiterte Nutzung durch technische Anwender. Das Training eigener Modelle, die Vorbereitung des Datensatzes, der Export nach ONNX oder die Registrierung neuer Modellversionen erfolgen nicht über denselben Bedienpfad wie die Fachanwendung, sondern über Skripte, Build-Prozesse und Verwaltungsfunktionen. Diese Trennung ist architektonisch relevant, weil sie die Anforderungen an Bedienbarkeit für Anwender und Änderbarkeit für Entwickler voneinander separiert.
 
 ### 8.5 Laufzeitverhalten und Ausführungsumgebung
 
-Das Repository ist auf CPU-Ausführung ausgelegt. In der Umgebungsbeschreibung werden vier oder mehr CPU-Kerne sowie ungefähr 16 GB RAM als praktische Ausgangsbasis genannt; GPU-Unterstützung ist im aktuellen Stand nicht eingerichtet. Damit hängt die wahrgenommene Performance im lokalen Betrieb direkt von der verfügbaren Hardware ab. Die Fachlogik bleibt dabei unverändert.
+Die Zielarchitektur adressiert zwei deutlich unterschiedliche Laufzeitumgebungen. Im lokalen Modus hängt die wahrgenommene Performance direkt von Browser, Endgerät und verfügbarer CPU-Leistung ab. Im Remote-Modus wird das Laufzeitverhalten stärker durch die definierte Serverhardware auf Hetzner planbar. Die fachliche Inferenzlogik bleibt dabei in beiden Modi gleich, variiert wird nur die Ausführungsumgebung und das dafür geeignete Modellformat.
 
-Wird dieselbe Lösung auf einem dedizierten Server mit fest eingeplanter Rechenleistung betrieben, lässt sich das Laufzeitverhalten planbarer gestalten als auf wechselnden lokalen Endgeräten. Die Architektur des aktuellen Stands enthält dafür jedoch noch keine eigene Serverkomponente; vorgesehen ist zunächst die lokale Ausführung über Streamlit und Python.
+Der aktuelle Prototyp ist auf CPU-Ausführung ausgelegt und bildet den serverseitigen Betriebsmodus noch nicht vollständig ab. Für die Architektur ist dieser Unterschied jedoch explizit eingeplant: Die spätere Produktionsumgebung ergänzt den bestehenden Prototyp um einen dedizierten Inferenzserver, nicht um eine andere fachliche Kernlogik.
 
 ### 8.6 Logging, Traceability und Betriebsaspekte
 
-Ein eigenständiges Logging-Konzept ist im aktuellen Repository nicht umgesetzt. Sichtbar ist bislang vor allem Konsolenausgabe im Trainingskontext, etwa über ein konfigurierbares Log-Intervall. Eine persistente Protokollierung von Inferenzanfragen, Vorhersagen, Fehlerfällen oder Laufzeiten findet im derzeitigen Stand nicht statt.
+Die Zielarchitektur sieht eine klare Trennung zwischen Fachfunktion und Betriebsbeobachtung vor. Insbesondere im Remote-Modus soll ein Audit Metadata Store strukturierte Informationen wie Zeitstempel, Modellversion, vorhergesagte Klasse, Konfidenz, Laufzeit und Fehlerfälle erfassen, ohne Bilddaten dauerhaft zu speichern. Damit wird die in den Kapiteln 3, 4 und 7 geforderte Auditierbarkeit unterstützt, ohne das Datenschutzkonzept zu unterlaufen.
 
-Für eine spätere Erweiterung bietet sich eine klare Trennung zwischen Fachfunktion und Betriebsbeobachtung an. Sinnvoll wäre insbesondere die strukturierte Erfassung von Eingabemetadaten, Modellversion, vorhergesagter Klasse, Konfidenz, Laufzeit und Fehlerfällen. Eine mögliche technische Umsetzung könnte ein leichtgewichtiges Logging oder eine Zwischenspeicherung in einer separaten Komponente wie Redis sein. Diese Erweiterung gehört nicht zum aktuellen Ist-Stand, passt aber in die vorhandene Architektur, da Inferenz, Oberfläche und Modellzugriff bereits voneinander getrennt sind.
+Im aktuellen Prototyp ist dieses Konzept nur teilweise vorhanden; sichtbar ist vor allem Konsolenausgabe im Trainingskontext. Die Architektur beschreibt hier bewusst den Zielzustand, weil Logging und Traceability für einen hypothetischen Produktionseinsatz wesentlich sind, auch wenn die heutige Implementierung diese Betriebsfunktionen noch nicht vollständig realisiert.
 
-### 8.7 Fachliche und regulatorische Grenze des Systems
+Das Audit-Format ist bewusst knapp gehalten und enthält mindestens `request_id`, `timestamp`, `model_id`, `model_version`, `processing_ms`, `status`, `error_code`, `client_version` sowie einen Hash der verschlüsselten Anfrage. Weder Rohbilder noch entschlüsselte Heatmaps werden persistiert.
 
-Die Anwendung enthält selbst einen klaren Hinweis, dass es sich um einen Proof of Concept handelt und nicht um einen Ersatz für professionelle medizinische Diagnose oder Behandlung. Diese Grenze ist nicht nur fachlich, sondern auch architektonisch relevant: Das System ist auf nachvollziehbare lokale Inferenz und Demonstration ausgelegt. Anforderungen wie Auditierbarkeit, regulatorische Absicherung, Datenschutzkonzepte für Patientendaten oder hochverfügbare Bereitstellung sind im aktuellen Stand deshalb noch nicht ausgebaut.
+#### Betriebsregeln
+
+1. Edge-Rate-Limits greifen vor der Entschlüsselung auf Basis von IP, Anfragegröße und optionalem Proof-of-Work-Token.
+2. Health-Checks prüfen nur Prozess- und Modellverfügbarkeit, nicht die Entschlüsselungsfunktion mit echten Nutzdaten.
+3. Worker-Schlüssel werden bei jedem Produktionsdeploy rotiert; der alte Schlüssel bleibt nur für einen kurzen Drain-Zeitraum gültig.
+4. Modellaktivierungen werden versioniert und auditierbar gespeichert.
+
+### 8.7 E2EE- und Schlüsselmanagement
+
+Da der Remote-Modus ohne interaktive Nutzerkonten funktionieren soll, wird keine benutzergebundene Anmeldung vorausgesetzt. Stattdessen verwendet die Zielarchitektur applikationsseitige Ende-zu-Ende-Verschlüsselung zwischen Browser und Inferenz-Worker.
+
+Der Ablauf ist wie folgt:
+
+1. Der Browser ruft `/.well-known/inference-key` ab.
+2. Der Endpunkt liefert den aktuellen öffentlichen X25519-Schlüssel des Workers zusammen mit einer Ed25519-Signatur und Ablaufzeit.
+3. Der Browser prüft die Signatur gegen einen im Frontend eingebetteten oder über Release-Artefakte gepinnten Vertrauensanker.
+4. Für jede Anfrage erzeugt der Browser ein ephemeres X25519-Schlüsselpaar, leitet mit dem Worker-Schlüssel einen Sitzungsschlüssel via HKDF-SHA256 ab und verschlüsselt Bild und Payload mit AES-256-GCM.
+5. Der Edge sieht nur das verschlüsselte Envelope und leitet anhand von `key_id` an den passenden Worker weiter.
+6. Der Worker entschlüsselt ausschließlich im Arbeitsspeicher, führt die Inferenz aus, verschlüsselt das Ergebnis mit demselben Sitzungsschlüssel und verwirft Klartextdaten anschließend.
+
+Dieses Design erfüllt den fachlichen Wunsch nach „kein Login, aber verschlüsselte Bilder bis zum Verarbeitungsendpunkt“. Die Ende-zu-Ende-Beziehung endet dabei explizit am Inferenz-Worker, nicht am vorgeschalteten Gateway. Der Worker-Host bleibt Teil der Trusted Computing Base; das Konzept schützt somit gegen Mitlesen in Transport, Edge und Protokollierung, nicht gegen einen vollständig kompromittierten Worker-Host.
+
+### 8.8 Fachliche und regulatorische Grenze des Systems
+
+Auch in der Zielarchitektur bleibt das System ein Entscheidungsunterstützungs- und Demonstrationswerkzeug und kein Ersatz für professionelle medizinische Diagnose oder Behandlung. Diese Grenze ist fachlich wie architektonisch relevant: Explainability, Datenschutz und Nachvollziehbarkeit werden bewusst gestärkt, ohne daraus eine Aussage über klinische Zulassung oder regulatorische Freigabe abzuleiten.
+
+Der aktuelle Prototyp macht diese Grenze bereits explizit sichtbar. Die Produktionsarchitektur erweitert den technischen Rahmen um Remote-Betrieb, Auditierbarkeit und Modellverwaltung, verändert aber nicht die grundlegende fachliche Einordnung des Systems.
+
+### 8.9 Umsetzungsstand und Migrationspfad
+
+Die folgende Matrix trennt bewusst zwischen dem heutigen Prototyp und dem Zielzustand der Architektur.
+
+| Thema | Prototyp | Zielarchitektur |
+|---|---|---|
+| Lokale Inferenz | implementiert | bleibt erhalten |
+| Remote-Inferenz | nicht implementiert | Browser → Edge → Worker mit E2EE-Envelope |
+| Modellformat lokal | PyTorch-basiert im Repository | ONNX über CDN |
+| Modellregistrierung | manuell / dateibasiert | Manifest + Validierung + Registry |
+| Audit-Store | nicht implementiert | strukturierte Metadaten ohne Bildpersistenz |
+| Deployment | lokal / manuell | GitHub Actions, Staging, Release-Promotion |
+| Schlüsselmanagement | nicht implementiert | rotierende Worker-Schlüssel + signierte Public Keys |
+
+Die priorisierte Umsetzung erfolgt in drei Schritten:
+
+1. Registry-, Manifest- und Validierungslogik für Modelle ergänzen.
+2. Remote-Inferenz mit verschlüsseltem Envelope und Audit-Store einführen.
+3. STLite/ONNX-Pfad und CDN-Auslieferung für den lokalen Zielzustand stabilisieren.
 
 ---
 
-## 9. Architecture Decisions
+## 9. Architekturentscheidungen
 
-Dieses Kapitel hält die wesentlichen Architekturentscheidungen des aktuellen Systemstands fest. Beschrieben werden Entscheidungen, die sich in der vorhandenen Anwendung, den Trainingsartefakten und der Struktur des Systems wiederfinden. Die Lösung ist auf einen nachvollziehbaren, lokal ausführbaren Demonstrator ausgelegt.
+Dieses Kapitel hält die wesentlichen Architekturentscheidungen der in den Kapiteln 1 bis 8 beschriebenen Zielarchitektur fest. Es verbindet vorhandene Implementierungsentscheidungen des Prototyps mit den gezielten Erweiterungen für den hypothetischen Produktionseinsatz. Wo die heutige Implementierung den Zielzustand noch nicht vollständig realisiert, wird dies als Umsetzungsstand und nicht als Widerspruch zur Architektur verstanden.
 
 ### 9.1 DenseNet121 als Modellbasis
 
-Für die Klassifikation wird DenseNet121 als Backbone verwendet. Der Klassifikationskopf ist auf vier Zielklassen angepasst: Glioma, Meningioma, Pituitary und Negative. Diese Modellwahl passt zur restlichen Struktur der Anwendung, weil sie sich sauber in die bestehende Inferenz einfügt und auch die spätere Visualisierung über Grad-CAM unterstützt.
+Für die Klassifikation wird DenseNet121 als architektonische Modellbasis verwendet. Der Klassifikationskopf ist auf vier Zielklassen angepasst: Glioma, Meningioma, Pituitary und Negative. Diese Modellwahl passt zur restlichen Architektur, weil sie sowohl die bestehende PyTorch-Inferenz des Prototyps als auch die geplante Grad-CAM-basierte Ergebnisdarstellung unterstützt.
 
-Die Entscheidung für DenseNet121 hält die Modellseite bewusst überschaubar. Das System braucht kein experimentelles oder besonders großes Modell, sondern eine belastbare Grundlage, die im gegebenen Rahmen gut funktioniert und technisch beherrschbar bleibt. Ein Wechsel auf einen anderen Backbone wäre grundsätzlich möglich, würde aber nicht nur das Training betreffen, sondern auch Teile der Visualisierung und der Modellanbindung.
+Die Entscheidung für DenseNet121 hält die Modellseite bewusst überschaubar. Das System braucht kein experimentelles oder besonders großes Modell, sondern eine belastbare Grundlage, die technisch beherrschbar bleibt und sich für einen späteren ONNX-Export eignet. Ein Wechsel auf einen anderen Backbone wäre grundsätzlich möglich, würde aber nicht nur Training und Inferenz, sondern auch Heatmap-Generierung und Modellschnittstellen betreffen.
 
-### 9.2 Inferenz mit festem Checkpoint
+### 9.2 Inferenz mit versioniertem Modellartefakt
 
-Die Anwendung arbeitet mit einem bereits trainierten Modellzustand. Für die Nutzung in der Oberfläche wird der gespeicherte Checkpoint `best.pt` geladen. Ein Training findet in der App selbst nicht statt. Damit bleibt der Nutzungsweg klar: Bild hochladen, Modell laden, Vorhersage berechnen, Ergebnis anzeigen.
+Die Inferenz arbeitet bewusst mit einem bereits trainierten und versionierten Modellartefakt. Im aktuellen Prototyp ist dies der gespeicherte Checkpoint `best.pt`; in der Zielarchitektur wird dieses Prinzip auf ONNX-Artefakte, Registry-Einträge und deploybare Modellversionen erweitert. Ein Training findet nicht im fachlichen Nutzungspfad statt. Damit bleibt der Anwenderpfad klar: Bild hochladen, Modellartefakt laden, Vorhersage berechnen, Ergebnis anzeigen.
 
-Diese Entscheidung hält die Oberfläche kompakt und macht das Verhalten der Anwendung reproduzierbar. Für dieselbe Eingabe und denselben Modellstand entsteht dasselbe Ergebnis. Dies ermöglicht standardisierte Tests und Vergleiche. Der Trainingsprozess bleibt davon getrennt und läuft weiterhin über eigene Skripte.
+Diese Entscheidung hält Oberfläche und API kompakt und macht das Verhalten der Anwendung reproduzierbar. Für dieselbe Eingabe, denselben Modellstand und dieselbe Laufzeitumgebung entsteht dasselbe Ergebnis. Der Trainingsprozess bleibt davon getrennt und läuft weiterhin über eigene Skripte und Build-Prozesse.
 
 ### 9.3 Klassenreihenfolge wird mit dem Modell gespeichert
 
@@ -860,12 +1048,11 @@ Die fachliche Bedeutung der Ausgabewerte hängt davon ab, dass die Reihenfolge d
 
 Mit dieser Entscheidung bleibt die Kopplung zwischen Training und Inferenz an einer kritischen Stelle erhalten. Das Modell gibt nicht nur Wahrscheinlichkeiten aus, sondern diese Wahrscheinlichkeiten werden auch in der richtigen Reihenfolge interpretiert. Dadurch sinkt das Risiko stiller Fehler, die im Betrieb nur schwer auffallen würden.
 
-### 9.4 Streamlit als primärer Zugang
+### 9.4 Streamlit/STLite als primärer Zugang
 
-Der vorgesehene Zugang zum System ist die lokale Streamlit-Anwendung. Sie bündelt Upload, Modellinitialisierung, Vorhersage und Ergebnisdarstellung in einer Oberfläche. Damit ist der normale Nutzungspfad bewusst kompakt gehalten. Für die Standardnutzung reicht es aus, ein Bild hochzuladen und die Auswertung direkt in der Oberfläche abzulesen.
+Der primäre Zugang zum System erfolgt über eine Streamlit-basierte Benutzeroberfläche. In der Zielarchitektur wird diese Oberfläche im lokalen Modus über STLite im Browser und im Remote-Modus über einen servergestützten Pfad bereitgestellt. Upload, Vorhersage und Ergebnisdarstellung bleiben damit aus Nutzersicht in einer konsistenten Oberfläche gebündelt.
 
-Diese Entscheidung passt zum Zweck des Systems. Der Schwerpunkt liegt auf einer direkt nutzbaren Anwendung. Der technische Pflegepfad bleibt davon getrennt.
-Es gibt außerdem die Möglichkeit, eigene Modelle für die Klassifizierung zu benutzen. Dieses Feature ermöglicht es, flexibel einsetzbar zu sein und die Vorhersagen auf eigene Anforderungen anzupassen. Für die Änderung des Modells wird Kommandozeilenbenutzung vorausgesetzt.
+Diese Entscheidung passt zum Zweck des Systems. Der Schwerpunkt liegt auf einer direkt nutzbaren Anwendung mit niedriger Eintrittshürde. Der technische Pflegepfad bleibt davon getrennt. Eigene Modelle können weiterhin über technische Verwaltungs- und Buildpfade eingebunden werden, ohne den Standardzugang für medizinisches Fachpersonal zu verkomplizieren.
 
 ### 9.5 Grad-CAM ist Teil der Standardausgabe
 
@@ -873,40 +1060,46 @@ Die Ausgabe enthält eine Grad-CAM-Heatmap, die die Entscheidung des Modells vis
 
 Die Entscheidung hat auch technische Folgen. Die Visualisierung hängt von der Struktur des gewählten Modells ab. Änderungen am Backbone wirken sich deshalb nicht nur auf die Klassifikation, sondern auch auf die Erklärbarkeit der Ausgabe aus.
 
-### 9.6 CPU als Zielumgebung
+### 9.6 CPU als Baseline der Zielumgebung
 
-Die aktuelle Ausführung ist auf CPU-Betrieb ausgelegt. Damit bleibt das Setup einfach und reproduzierbar. Für die vorhandene Abgabe ist das sinnvoll, weil keine spezielle GPU-Umgebung vorausgesetzt werden muss.
+Die Architektur geht zunächst von CPU-basierten Laufzeitumgebungen aus. Damit bleiben Prototyp, lokale Nutzung und ein erster serverseitiger Produktivpfad einfach und reproduzierbar. Für die Abgabe und den hypothetischen Produktionseinstieg ist das sinnvoll, weil keine spezielle GPU-Infrastruktur vorausgesetzt werden muss.
 
-Die Laufzeit hängt damit stärker von der verfügbaren Hardware ab als bei einem fest bereitgestellten Server. Für lokale Nutzung ist das akzeptabel. In einer späteren Ausbaustufe könnte dieselbe Fachlogik auch auf eine stabilere Serverumgebung verschoben werden, ohne dass der fachliche Ablauf der Inferenz geändert werden müsste.
+Die Laufzeit hängt im lokalen Modus damit stärker von der verfügbaren Hardware ab als bei einem fest bereitgestellten Server. Das ist akzeptiert und wird durch die Trennung der Betriebsmodi architektonisch aufgefangen. Eine spätere GPU-Unterstützung bleibt möglich, ohne den fachlichen Ablauf der Inferenz zu verändern.
+
+### 9.7 Applikationsseitige Verschlüsselung ohne Nutzerlogin
+
+Für Remote-Inferenz wird keine klassische Benutzeranmeldung vorausgesetzt. Stattdessen setzt die Architektur auf applikationsseitige Verschlüsselung mit ephemeren Sitzungsschlüsseln und signierten Worker-Public-Keys. Diese Entscheidung hält die Einstiegshürde für Anwender niedrig und reduziert zugleich die Sichtbarkeit sensibler Bilddaten für vorgeschaltete Infrastrukturkomponenten.
+
+Die Entscheidung bringt klare technische Konsequenzen mit sich: ein definierter Schlüsselabruf-Endpunkt, Schlüsselrotation je Deployment, verschlüsselte Envelope-Formate sowie eine eindeutige Trust-Boundary am Inferenz-Worker. Misslingt diese Disziplin, ist der Datenschutzgewinn des Remote-Modus nicht erreichbar.
 
 ---
 
-## 10. Quality Requirements
+## 10. Qualitätsanforderungen
 
-Die Qualität des Systems wird vor allem an der fachlichen Güte der Klassifikation, am stabilen Laufzeitverhalten und an der Nutzbarkeit der Anwendung gemessen. Die wichtigsten Anforderungen ergeben sich aus dem vorgesehenen Einsatz als lokal ausführbarer Demonstrator mit festem Modellstand und grafischer Oberfläche.
+Die Qualität des Systems wird in der Zielarchitektur vor allem an der fachlichen Güte der Klassifikation, am stabilen Laufzeitverhalten in beiden Betriebsmodi, an Datenschutz und Nachvollziehbarkeit sowie an der Nutzbarkeit der Anwendung gemessen. Die wichtigsten Anforderungen ergeben sich aus dem vorgesehenen Einsatz als lokal nutzbare und optional servergestützte Entscheidungsunterstützung mit erklärbarer Inferenz.
 
 ### 10.1 Qualitätsübersicht
 
-Im Vordergrund steht die fachliche Qualität der Vorhersage. Das System soll MRT-Bilder zuverlässig einer der vier vorgesehenen Klassen zuordnen. Für den aktuellen Modellstand ist eine Genauigkeit von über 90 % der maßgebliche Zielwert. Diese Anforderung ist zentral, weil die Oberfläche und die restliche Anwendung nur dann sinnvoll nutzbar sind, wenn die Klassifikation selbst belastbar ist.
+Im Vordergrund steht die fachliche Qualität der Vorhersage. Das System soll MRT-Bilder zuverlässig einer der vier vorgesehenen Klassen zuordnen. Für produktiv nutzbare Modellartefakte ist eine Genauigkeit von über 90 % in unabhängiger Validierung der maßgebliche Zielwert. Diese Anforderung ist zentral, weil Oberfläche, Erklärbarkeit und Betriebsmodell nur dann sinnvoll sind, wenn die Klassifikation selbst belastbar ist.
 
-Ein zweiter Schwerpunkt liegt auf der Reproduzierbarkeit. Bei identischem Eingabebild, gleichem Modellstand und unveränderter Laufzeitumgebung soll das Ergebnis stabil bleiben. Das betrifft nicht nur das vorhergesagte Klassenlabel, sondern auch die zugehörigen Wahrscheinlichkeiten. Diese Eigenschaft ist für Tests, Vergleiche und spätere Fehleranalyse wichtig.
+Ein zweiter Schwerpunkt liegt auf der Reproduzierbarkeit. Bei identischem Eingabebild, gleichem Modellartefakt und unveränderter Laufzeitumgebung soll das Ergebnis stabil bleiben. Das betrifft nicht nur das vorhergesagte Klassenlabel, sondern auch die zugehörigen Wahrscheinlichkeiten. Diese Eigenschaft ist für Tests, Vergleiche, Auditierbarkeit und spätere Fehleranalyse wichtig.
 
-Hinzu kommt die Nutzbarkeit der Anwendung. Der normale Nutzungspfad soll ohne Eingriffe in den Code möglich sein. Die vorhandene Oberfläche unterstützt diesen Ansatz durch einen direkten Upload von Bilddateien. Für Standardfälle ist damit keine Arbeit über die Kommandozeile notwendig. Davon getrennt ist die erweiterte Nutzung, etwa das Einbinden eigener Modelle oder ein erneutes Training. Diese Schritte setzen weiterhin technisches Vorwissen voraus.
+Hinzu kommt die Nutzbarkeit der Anwendung. Der normale Nutzungspfad soll in lokalem wie in Remote-Betrieb ohne Eingriffe in den Code möglich sein. Die Oberfläche unterstützt diesen Ansatz durch direkten Upload von Bilddateien, klare Ergebnisdarstellung und einheitliche Bedienabläufe. Davon getrennt ist die erweiterte Nutzung, etwa das Einbinden eigener Modelle, der Export nach ONNX oder ein erneutes Training. Diese Schritte setzen weiterhin technisches Vorwissen voraus.
 
-Die Laufzeitqualität hängt stark von der Zielumgebung ab. Bei lokaler Ausführung ist die Performance unmittelbar von der verfügbaren Rechenleistung abhängig. Für einen stabilen Betrieb werden mindestens vier CPU-Kerne und 16 GB RAM angesetzt. In einer Serverumgebung mit garantierter Rechenleistung lässt sich dieselbe Fachlogik planbarer betreiben als auf wechselnder lokaler Hardware.
+Die Laufzeitqualität hängt von der Zielumgebung ab. Bei lokaler Ausführung ist die Performance unmittelbar von der verfügbaren Rechenleistung abhängig. Für einen stabilen Betrieb werden mindestens vier CPU-Kerne und 16 GB RAM als praktikable Ausgangsbasis angesetzt. In einer Serverumgebung mit garantierter Rechenleistung lässt sich dieselbe Fachlogik planbarer betreiben als auf wechselnder lokaler Hardware.
 
-Zusätzlich ist die Nachvollziehbarkeit der Ausgabe relevant. Die Anwendung liefert neben einem Klassenlabel auch Wahrscheinlichkeiten und eine Grad-CAM-Visualisierung an. Dadurch wird der Grundsatz für die Nachvollziehbarkeit der Ergebnisse geliefert. Die Heatmap ersetzt keine medizinische Begründung, verbessert aber die Verständlichkeit des Ergebnisses.
+Zusätzlich sind Datenschutz, Sicherheit und Nachvollziehbarkeit der Ausgabe relevant. Die Anwendung liefert neben einem Klassenlabel auch Wahrscheinlichkeiten und eine Grad-CAM-Visualisierung. Im Remote-Modus kommen verschlüsselte Übertragung, stateless Verarbeitung und Audit-Metadaten hinzu. Die Heatmap ersetzt keine medizinische Begründung, verbessert aber die Verständlichkeit des Ergebnisses.
 
 ### 10.2 Qualitätsszenarien
 
 **QS-1: Fachliche Qualität der Klassifikation**  
-Ein Nutzer lädt ein gültiges MRT-Bild über die Oberfläche hoch. Das System verarbeitet die Eingabe und gibt eine der vier vorgesehenen Klassen mit zugehöriger Konfidenz zurück. Für den aktuellen Modellstand soll die Klassifikation eine Genauigkeit von über 90 % erreichen.
+Ein Nutzer lädt ein gültiges MRT-Bild über die Oberfläche hoch. Das System verarbeitet die Eingabe und gibt eine der vier vorgesehenen Klassen mit zugehöriger Konfidenz zurück. Für freigegebene Modellartefakte soll die Klassifikation eine Genauigkeit von über 90 % in unabhängiger Validierung erreichen.
 
 **QS-2: Reproduzierbarkeit der Vorhersage**  
-Dasselbe Bild wird mehrfach mit identischem Checkpoint und unveränderter Laufzeitumgebung verarbeitet. Das System liefert bei jeder Ausführung dieselbe Klasse und dieselben Wahrscheinlichkeitswerte. Abweichungen dürfen nur dann auftreten, wenn Modellstand oder Ausführungsumgebung geändert wurde.
+Dasselbe Bild wird mehrfach mit identischem Modellartefakt und unveränderter Laufzeitumgebung verarbeitet. Das System liefert bei jeder Ausführung dieselbe Klasse und dieselben Wahrscheinlichkeitswerte. Abweichungen dürfen nur dann auftreten, wenn Modellstand oder Ausführungsumgebung geändert wurde.
 
 **QS-3: Nutzbarkeit im Standardfall**  
-Ein Nutzer verwendet das vorhandene Modell und will ein einzelnes MRT-Bild auswerten. Die Bedienung erfolgt vollständig über die grafische Oberfläche. Nach dem Upload werden Bild, Vorhersage, Konfidenz und Heatmap ohne weitere technische Schritte angezeigt. Für diesen Nutzungspfad ist keine Arbeit über die Kommandozeile erforderlich.
+Ein Nutzer verwendet ein freigegebenes Modell und will ein einzelnes MRT-Bild auswerten. Die Bedienung erfolgt vollständig über die grafische Oberfläche. Nach dem Upload werden Bild, Vorhersage, Konfidenz und Heatmap ohne weitere technische Schritte angezeigt. Für diesen Nutzungspfad ist keine Arbeit über die Kommandozeile erforderlich.
 
 **QS-4: Erweiterte Nutzung durch technische Anwender**  
 Ein Nutzer möchte nicht nur das vorhandene Modell verwenden, sondern ein eigenes Modell trainieren oder einbinden. Diese Nutzung erfolgt über Skripte und Kommandozeile. Die Architektur ermöglicht diesen Pfad, setzt aber technische Kenntnisse voraus.
@@ -920,42 +1113,48 @@ Die Anwendung wird mit derselben Fachlogik in einer Umgebung mit fest zugesicher
 **QS-7: Nachvollziehbarkeit des Ergebnisses**  
 Nach einer erfolgreichen Vorhersage soll das Ergebnis nicht nur als Klassenname erscheinen. Zusätzlich werden die Wahrscheinlichkeitsverteilung und eine Grad-CAM-Heatmap dargestellt. Dadurch kann der Nutzer die Entscheidung des Modells besser einordnen.
 
+**QS-8: Datenschutz im Remote-Modus**  
+Ein Nutzer verwendet den Remote-Modus und lädt ein sensibles MRT-Bild hoch. Das System verschlüsselt die Daten clientseitig, verarbeitet sie serverseitig ohne dauerhafte Speicherung und liefert das Ergebnis verschlüsselt zurück. Persistente Bildspeicherung ist in diesem Szenario ausgeschlossen.
+
+**QS-9: Auditierbarkeit serverseitiger Inferenz**  
+Eine Remote-Inferenz wird erfolgreich durchgeführt. Das System protokolliert Zeitstempel, Modellversion, Laufzeit, Ergebnisstatus und Fehlerfälle in strukturierter Form, ohne Bilddaten dauerhaft zu speichern. Damit bleibt die Anfrage nachträglich technisch nachvollziehbar.
+
 ---
 
 
-## 11. Risks and Technical Debt
+## 11. Risiken und technische Schulden
 
-Dieses Kapitel beschreibt die wesentlichen Risiken des aktuellen Systemstands sowie bekannte technische Schulden. Im Mittelpunkt stehen Themen, die sich direkt auf Verlässlichkeit, Wartbarkeit und spätere Weiterentwicklung auswirken.
+Dieses Kapitel beschreibt die wesentlichen Risiken der Zielarchitektur sowie bekannte technische Schulden des aktuellen Prototyps auf dem Weg dorthin. Im Mittelpunkt stehen Themen, die sich direkt auf Verlässlichkeit, Wartbarkeit, Datenschutz, Erklärbarkeit und spätere Weiterentwicklung auswirken.
 
 ### 11.1 Fachliche Grenzen des Modells
 
-Die Anwendung klassifiziert MRT-Bilder in vier Klassen und stellt die Vorhersage zusammen mit Konfidenz und Heatmap dar. Die Aussagekraft der Ergebnisse hängt dabei unmittelbar von den Trainingsdaten und vom gelernten Modellverhalten ab. Eine gute Genauigkeit im vorhandenen Datensatz bedeutet nicht automatisch, dass das Modell auf abweichenden Bildern, anderen Aufnahmebedingungen oder neuen Datenquellen gleich zuverlässig arbeitet. Dieses Risiko ist für ML-Systeme grundsätzlich vorhanden und bleibt auch bei einem stabilen Anwendungspfad bestehen.
+Die Anwendung klassifiziert MRT-Bilder in vier Klassen und stellt die Vorhersage zusammen mit Konfidenz und Heatmap dar. Die Aussagekraft der Ergebnisse hängt dabei unmittelbar von Trainingsdaten, Domänenpassung und gelerntem Modellverhalten ab. Eine gute Genauigkeit in Validierungsläufen bedeutet nicht automatisch, dass das Modell auf abweichenden Bildern, anderen Aufnahmebedingungen oder neuen Datenquellen gleich zuverlässig arbeitet. Dieses Risiko ist für ML-Systeme grundsätzlich vorhanden und bleibt auch in der Zielarchitektur bestehen.
 
-Hinzu kommt die fachliche Begrenzung des Systems. Die Anwendung ist als Proof of Concept ausgelegt und nicht als medizinisches Produkt. Daraus folgt, dass die Ergebnisse nur als technische Klassifikation verstanden werden dürfen. Anforderungen, die in einem klinischen Umfeld notwendig wären, sind im aktuellen Stand nicht Teil der Architektur.
+Hinzu kommt die fachliche Begrenzung des Systems. Auch die Zielarchitektur beschreibt kein medizinisches Produkt mit klinischer Zulassung, sondern ein Entscheidungsunterstützungs- und Demonstrationswerkzeug. Daraus folgt, dass die Ergebnisse nur als technische Klassifikation verstanden werden dürfen. Anforderungen, die in einem klinischen Umfeld notwendig wären, bleiben außerhalb des Scopes.
 
 ### 11.2 Abhängigkeit vom Modellartefakt
 
-Die Inferenz hängt an einem gespeicherten Checkpoint, der zusammen mit der Klassenreihenfolge geladen wird. Das reduziert Fehler bei der Interpretation der Ausgabewerte, schafft aber zugleich eine starke Bindung an genau dieses Modellartefakt. Ist der Checkpoint beschädigt, nicht vorhanden oder nicht kompatibel zum erwarteten Modellaufbau, kann die Anwendung nicht sinnvoll arbeiten. Auch spätere Änderungen an der Modellstruktur müssen mit dem Format des gespeicherten Zustands zusammenpassen.
+Die Inferenz hängt an einem versionierten Modellartefakt, das zusammen mit der Klassenreihenfolge geladen wird. Das reduziert Fehler bei der Interpretation der Ausgabewerte, schafft aber zugleich eine starke Bindung an die Korrektheit und Verfügbarkeit genau dieses Artefakts. Ist ein Checkpoint oder ONNX-Artefakt beschädigt, nicht vorhanden oder nicht kompatibel zum erwarteten Modellaufbau, kann die Anwendung nicht sinnvoll arbeiten. Auch spätere Änderungen an der Modellstruktur müssen mit Format, Metadaten und Registrierungsmechanismus zusammenpassen.
 
-Diese Abhängigkeit ist aktuell vertretbar, sollte aber als technische Schuld sichtbar bleiben. Je länger das System weiterentwickelt wird, desto wichtiger wird ein sauberer Umgang mit Modellversionen, Metadaten und kompatiblen Checkpoint-Formaten. Im aktuellen Stand ist das funktional gelöst, aber noch nicht als eigener Verwaltungsmechanismus ausgearbeitet.
+Diese Abhängigkeit ist architektonisch vertretbar, sollte aber als technische Schuld des aktuellen Prototyps sichtbar bleiben. Je länger das System weiterentwickelt wird, desto wichtiger wird ein sauberer Umgang mit Modellversionen, Metadaten, Freigabestatus und kompatiblen Artefaktformaten. Im Prototyp ist das funktional nur teilweise gelöst; die Zielarchitektur verlangt hierfür einen expliziteren Verwaltungsmechanismus.
 
 ### 11.3 Fehlende Betriebsbeobachtung
 
-Ein eigenständiges Logging für Vorhersagen, Laufzeiten und Fehlerfälle ist nicht vorhanden. Damit fehlt eine belastbare Grundlage, um Anfragen im Nachhinein nachzuvollziehen oder Probleme systematisch auszuwerten. Für eine lokale Demonstrationsanwendung ist das noch handhabbar. Bei häufiger Nutzung oder bei einem späteren Betrieb außerhalb des Entwicklerkontexts wird dieser Punkt schnell relevant. Dann fehlt ohne zusätzliche Maßnahmen der Blick darauf, welche Bilder verarbeitet wurden, welcher Modellstand aktiv war und wo Fehler entstanden sind.
+Die Zielarchitektur sieht eine serverseitige Audit- und Beobachtungsschicht vor. Im aktuellen Prototyp ist diese jedoch noch nicht vollständig umgesetzt. Dadurch fehlt heute eine belastbare Grundlage, um Anfragen im Nachhinein nachzuvollziehen oder Probleme systematisch auszuwerten. Für eine lokale Demonstrationsanwendung ist das noch handhabbar. Bei häufiger Nutzung oder bei einem späteren Remote-Betrieb wird dieser Punkt schnell kritisch.
 
-Auch für Tests und Fehlersuche ist das ein Nachteil. Eine unerwartete Vorhersage lässt sich im aktuellen Stand nur begrenzt rekonstruieren, weil weder Eingabemetadaten noch Laufzeitinformationen strukturiert festgehalten werden. Ein leichtgewichtiges Logging wäre deshalb eine naheliegende nächste Ausbaustufe.
+Auch für Tests und Fehlersuche ist das ein Nachteil. Eine unerwartete Vorhersage lässt sich im Prototyp nur begrenzt rekonstruieren, weil weder Eingabemetadaten noch Laufzeitinformationen strukturiert festgehalten werden. Die Schließung dieser Lücke ist weniger eine neue Architekturentscheidung als eine notwendige Umsetzung des in Kapitel 8 beschriebenen Zielzustands.
 
 ### 11.4 Abhängigkeit von der Ausführungsumgebung
 
-Die Anwendung ist auf lokale CPU-Ausführung ausgelegt. Die Laufzeit hängt daher direkt von der verfügbaren Hardware ab. Für stärkere Systeme ist das unkritisch, bei schwächerer Ausstattung kann die Reaktionszeit deutlich schwanken. Diese Abhängigkeit ist im aktuellen Stand akzeptabel, weil keine feste Service-Umgebung vorausgesetzt wird. Sie bleibt aber ein Risiko für die wahrgenommene Qualität der Anwendung, vor allem wenn dieselbe Fachlogik auf sehr unterschiedlichen Geräten genutzt wird.
+Die Architektur geht zunächst von CPU-basierten Laufzeitumgebungen aus. Im lokalen Modus hängt die Laufzeit daher direkt von der verfügbaren Hardware ab. Für stärkere Systeme ist das unkritisch, bei schwächerer Ausstattung kann die Reaktionszeit deutlich schwanken. Diese Abhängigkeit bleibt auch in der Zielarchitektur ein Risiko für die wahrgenommene Qualität der Anwendung, vor allem wenn dieselbe Fachlogik auf sehr unterschiedlichen Geräten genutzt wird.
 
-Dazu kommt die Bindung an eine recht konkrete Zielumgebung. Vorgesehen sind x86-64, Linux oder WSL2 sowie ein Conda-basiertes Setup. Andere Umgebungen wurden nicht in gleicher Tiefe abgesichert. Das vereinfacht zwar die Abgabe und den aktuellen Betrieb, begrenzt aber die Portabilität. Spätere Ausbauschritte würden davon profitieren, den Start der Anwendung stärker von einzelnen Entwicklungsumgebungen zu lösen.
+Dazu kommt die Bindung des Prototyps an eine recht konkrete Entwicklungsumgebung. Vorgesehen sind x86-64, Linux oder WSL2 sowie ein Conda-basiertes Setup. Andere Umgebungen wurden nicht in gleicher Tiefe abgesichert. Das vereinfacht zwar Abgabe und aktuellen Betrieb, begrenzt aber die Portabilität. Spätere Ausbauschritte würden davon profitieren, den Start der Anwendung stärker von einzelnen Entwicklungsumgebungen zu lösen.
 
 ### 11.5 Begrenzte Trennung zwischen Nutzung und Betrieb
 
-Der normale Nutzungspfad ist mit Streamlit einfach gehalten. Upload, Modellinitialisierung, Inferenz und Ergebnisdarstellung liegen nah beieinander. Für den aktuellen Stand ist das passend. Mit wachsendem Funktionsumfang entsteht daraus aber eine technische Schuld, weil Präsentation, Betriebslogik und Modellzugriff noch nicht als klar getrennte Schichten mit stabilen Schnittstellen vorliegen. Änderungen an der Inferenz oder am Ergebnisformat wirken dadurch schneller bis in die Oberfläche hinein.
+Die Zielarchitektur trennt fachliche Nutzung, Modellverwaltung und Betriebsaspekte konzeptionell voneinander. Im aktuellen Prototyp liegen Upload, Modellinitialisierung, Inferenz und Ergebnisdarstellung jedoch noch vergleichsweise nah beieinander. Für den heutigen Stand ist das vertretbar. Mit wachsendem Funktionsumfang entsteht daraus aber eine technische Schuld, weil Präsentation, Betriebslogik und Modellzugriff noch nicht überall als klar getrennte Schichten mit stabilen Schnittstellen realisiert sind. Änderungen an der Inferenz oder am Ergebnisformat wirken dadurch schneller bis in die Oberfläche hinein.
 
-Dasselbe gilt für erweiterte Nutzung. Der Standardfall ist über die Oberfläche gut abgedeckt, das erneute Training oder das Einbinden eigener Modelle läuft aber weiterhin über Skripte und Kommandozeile. Die Architektur deckt beide Wege ab, bündelt sie jedoch noch nicht in einem gemeinsamen Bedienkonzept.
+Dasselbe gilt für erweiterte Nutzung. Der Standardfall ist über die Oberfläche gut abgedeckt, das erneute Training oder das Einbinden eigener Modelle läuft aber weiterhin über Skripte und Kommandozeile. Die Architektur deckt beide Wege bewusst getrennt ab, der Prototyp bündelt diese Trennung jedoch noch nicht vollständig in stabilen Bedien- und Verwaltungsgrenzen.
 
 ### 11.6 Explainability ohne fachliche Validierung
 
@@ -965,43 +1164,60 @@ Für die Architektur folgt daraus kein Verzicht auf Explainability, sondern ein 
 
 ---
 
-## 12. Appendix
+## 12. Glossar
 
-### References
+### Referenzen
 
 - [arc42.org](https://arc42.org)
+- [Grad-CAM Explanation](https://arxiv.org/abs/1610.02391)
+- [Hetzner Cloud](https://www.hetzner.com/cloud)
 - [ONNX](https://onnx.ai)
 - [Streamlit](https://streamlit.io)
-- [Hetzner Cloud](https://www.hetzner.com/cloud)
-- [Grad-CAM Explanation](https://arxiv.org/abs/1610.02391)
 
-### Glossary
+### Begriffe
 
 | Term | Definition |
 |------|------------|
+| AES-256-GCM | Authentifiziertes Verschlüsselungsverfahren, das in der Zielarchitektur zur symmetrischen Verschlüsselung von Bilddaten und Ergebnis-Payloads verwendet wird. |
+| Audit Metadata Store | Serverseitiger Speicher für strukturierte Betriebs- und Audit-Metadaten ohne dauerhafte Bildpersistenz; im Dokument teilweise auch verkürzt als Audit-Store bezeichnet. |
 | Backbone | Grundlegende Modellarchitektur, auf der die Klassifikation aufbaut. |
 | Brain Cropping | Zuschneiden des Bildes auf den relevanten Gehirnbereich vor der weiteren Verarbeitung. |
+| CDN | Content Delivery Network zur Auslieferung statischer Artefakte wie der lokalen ONNX-Modelldatei. |
 | Checkpoint | Gespeicherter Modellzustand mit Gewichten und zusätzlichen Metadaten. |
 | Classification Head | Letzte Schicht eines Modells, die die Ausgabewerte für die Zielklassen erzeugt. |
 | CLI | Bedienung eines Programms über die Kommandozeile. |
 | Confidence | Maß für die Sicherheit einer Vorhersage. |
 | CPU | Prozessor des Systems; im aktuellen Stand Zielumgebung für Training und Inferenz. |
 | DenseNet121 | Verwendete Modellarchitektur zur Klassifikation der MRT-Bilder. |
+| E2EE | Ende-zu-Ende-Verschlüsselung, bei der Bilddaten erst am vorgesehenen Verarbeitungsendpunkt entschlüsselt werden. |
+| Ed25519 | Kryptographisches Signaturverfahren, mit dem öffentliche Worker-Schlüssel signiert werden. |
+| Edge | Vorgeschaltete Infrastrukturkomponente, die TLS-Terminierung, Rate-Limits und Routing übernimmt, aber keine Nutzlast entschlüsseln darf. |
+| Gateway | Netzwerkknoten im Remote-Modus, der verschlüsselte Anfragen entgegennimmt und an den passenden Worker weiterleitet. |
 | Grad-CAM | Visualisierungsmethode, die Bildbereiche hervorhebt, welche die Vorhersage des Modells beeinflusst haben. |
 | Heatmap | Grafische Darstellung relevanter Bildbereiche, hier als Ergebnis der Grad-CAM-Auswertung. |
+| HKDF-SHA256 | Schlüsselerweiterungsverfahren auf Basis von SHA-256, mit dem im Remote-Modus Sitzungsschlüssel abgeleitet werden. |
 | Inferenz | Anwendung eines trainierten Modells auf neue Eingabedaten zur Berechnung einer Vorhersage. |
 | Klassenreihenfolge | Reihenfolge der Zielklassen im Modellausgang; entscheidend für die korrekte Interpretation der Ausgabe. |
+| Load Balancer | Infrastrukturkomponente zur Verteilung eingehender Anfragen auf mehrere Worker- oder API-Instanzen. |
+| Manifest | Strukturierte Metadatendatei, die ein Modellartefakt mit Version, Klassen, Eingabeformat und weiteren Laufzeitinformationen beschreibt. |
 | MRT | Magnetresonanztomographie; hier die Bildgrundlage für die Klassifikation. |
 | Modellartefakt | Technisches Ergebnis eines Trainingslaufs, etwa Gewichte oder gespeicherte Modellzustände. |
 | Normalisierung | Anpassung von Eingabewerten an einen festgelegten Wertebereich vor der Modellverarbeitung. |
 | Negative | Klasse für Bilder ohne einen der drei berücksichtigten Tumortypen. |
+| OIDC | OpenID Connect; hier zur Ausstellung kurzlebiger technischer Tokens für Modellvalidierung und -registrierung genutzt. |
 | ONNX | Open Neural Network Exchange. |
-| Proof of Concept | Technischer Demonstrator, der eine Lösung zeigt, aber nicht als fertiges Produkt ausgelegt ist. |
+| ONNX Runtime Web | Browserfähige Laufzeitumgebung zur Ausführung von ONNX-Modellen im lokalen Modus. |
 | Preprocessing | Vorbereitung der Eingabedaten vor der eigentlichen Modellverarbeitung. |
+| Proof of Concept | Technischer Demonstrator, der eine Lösung zeigt, aber nicht als fertiges Produkt ausgelegt ist. |
+| Proof-of-Work | Optionales Nachweisverfahren, das vor einer Anfrage Rechenaufwand verlangt, um Missbrauch zu erschweren. |
+| Registry | Verwaltungsbaustein für Modellartefakte und ihre Freigabe für Inferenz oder Auslieferung. |
 | Reproduzierbarkeit | Eigenschaft, dass bei gleichen Eingaben und gleichen Bedingungen dieselben Ergebnisse entstehen. |
 | Resize | Skalierung eines Bildes auf eine feste Zielgröße. |
 | Streamlit | Verwendetes Framework für die grafische Oberfläche der Anwendung. |
 | STLite | Paket, um Streamlit-Anwendungen lokal mit WASM auszuführen. |
 | Transformationspipeline | Abfolge von Verarbeitungsschritten, die auf Eingabedaten vor der Inferenz angewendet wird. |
+| Trusted Computing Base | Menge der Systemkomponenten, denen sicherheitstechnisch vertraut werden muss, damit das Schutzkonzept wirksam bleibt. |
+| WASM | WebAssembly; kompaktes Binärformat zur Ausführung von Anwendungscode im Browser. |
+| X25519 | Elliptisches-Diffie-Hellman-Verfahren zur Aushandlung gemeinsamer Sitzungsschlüssel zwischen Browser und Worker. |
 
 ---

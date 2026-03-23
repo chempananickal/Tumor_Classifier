@@ -82,7 +82,7 @@ jobs:
               <style>
                 @page {
                   size: A4;
-                  margin: 16mm 14mm 18mm 14mm;
+                  margin: 16mm 14mm 22mm 14mm;
                 }
 
                 html, body {
@@ -297,7 +297,27 @@ jobs:
             path: outputPdf,
             format: "A4",
             printBackground: true,
-            preferCSSPageSize: true
+            preferCSSPageSize: true,
+            displayHeaderFooter: true,
+            headerTemplate: `<div></div>`,
+            footerTemplate: `
+              <div style="
+                width: 100%;
+                font-size: 9px;
+                color: #666666;
+                padding: 0 14mm;
+                text-align: center;
+                font-family: 'Segoe UI', Arial, sans-serif;
+              ">
+                Seite <span class="pageNumber"></span> von <span class="totalPages"></span>
+              </div>
+            `,
+            margin: {
+              top: "16mm",
+              right: "14mm",
+              bottom: "22mm",
+              left: "14mm"
+            }
           });
 
           await browser.close();

@@ -68,8 +68,61 @@ jobs:
             throw new Error(`Markdown file not found: ${inputPath}`);
           }
 
-          const markdown = fs.readFileSync(inputPath, "utf8");
-          const inputDirUrl = pathToFileURL(path.dirname(path.resolve(inputPath)) + path.sep).href;
+          function mimeTypeFor(filePath) {
+            const ext = path.extname(filePath).toLowerCase();
+            if (ext === ".png") return "image/png";
+            if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+            if (ext === ".gif") return "image/gif";
+            if (ext === ".svg") return "image/svg+xml";
+            if (ext === ".webp") return "image/webp";
+            return null;
+          }
+
+          function inlineLocalImages(markdownSource, baseDir) {
+            const tryInline = (rawPath) => {
+              if (!rawPath || /^(https?:|data:|file:|#)/i.test(rawPath)) {
+                return null;
+              }
+
+              const cleanPath = rawPath.split("?")[0].split("#")[0];
+              const absolutePath = path.resolve(baseDir, cleanPath);
+              if (!fs.existsSync(absolutePath)) {
+                return null;
+              }
+
+              const mimeType = mimeTypeFor(absolutePath);
+              if (!mimeType) {
+                return null;
+              }
+
+              const base64 = fs.readFileSync(absolutePath).toString("base64");
+              return `data:${mimeType};base64,${base64}`;
+            };
+
+            let transformed = markdownSource.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g, (match, altText, imagePath, title) => {
+              const dataUrl = tryInline(imagePath);
+              if (!dataUrl) {
+                return match;
+              }
+
+              const titlePart = title ? ` \"${title}\"` : "";
+              return `![${altText}](${dataUrl}${titlePart})`;
+            });
+
+            transformed = transformed.replace(/(<img\b[^>]*\bsrc=["'])([^"']+)(["'][^>]*>)/gi, (match, prefix, imagePath, suffix) => {
+              const dataUrl = tryInline(imagePath);
+              if (!dataUrl) {
+                return match;
+              }
+              return `${prefix}${dataUrl}${suffix}`;
+            });
+
+            return transformed;
+          }
+
+          const inputDir = path.dirname(path.resolve(inputPath));
+          const markdown = inlineLocalImages(fs.readFileSync(inputPath, "utf8"), inputDir);
+          const inputDirUrl = pathToFileURL(inputDir + path.sep).href;
           fs.mkdirSync(path.dirname(outputPdf), { recursive: true });
 
           const html = String.raw`<!DOCTYPE html>

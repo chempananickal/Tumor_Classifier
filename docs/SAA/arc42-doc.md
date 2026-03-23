@@ -4,7 +4,7 @@
 
 # Tumor Classifier Product Architecture Documentation (arc42 Template)
 
-Version: 1.0 | Status: Entwurf (2026-03-18) | Autoren: Rubin Chempananickal James (D876), Sebastian Leithoff (D704), Alexander Savkov (D911)
+Version: 1.0 (2026-03-18) | Autoren: Rubin Chempananickal James (D876), Sebastian Leithoff (D704), Alexander Savkov (D911)
 
 ---
 
